@@ -56,7 +56,7 @@ class Turn14_Smart_Fulfillment {
         require_once T14SF_PLUGIN_DIR . 'includes/price-manager.php';
         require_once T14SF_PLUGIN_DIR . 'includes/stock-manager.php';
         require_once T14SF_PLUGIN_DIR . 'includes/shipping-splitter.php';
-        require_once T14SF_PLUGIN_DIR . 'includes/order-tagging.php';
+        require_once T14SF_PLUGIN_DIR . 'admin/order-tagging.php';
         
         if (is_admin()) {
             require_once T14SF_PLUGIN_DIR . 'admin/settings-page.php';
@@ -120,7 +120,7 @@ class Turn14_Smart_Fulfillment {
     }
     
     public function add_settings_link($links) {
-        $settings_link = '<a href="' . admin_url('admin.php?page=t14sf-dashboard') .  '">Settings</a>';
+        $settings_link = '<a href="' . admin_url('admin.php?page=t14sf-dashboard') . '">Settings</a>';
         array_unshift($links, $settings_link);
         return $links;
     }
