@@ -70,7 +70,7 @@ if (isset($_GET['page']) && $_GET['page'] === 't14sf-dashboard') {
             <div class="t14sf-stat-icon">🏭</div>
             <div class="t14sf-stat-content">
                 <h3>Local Stock</h3>
-                <p class="t14sf-stat-number"><?php echo number_format($products_with_local_stock); ?></p>
+                <p class="t14sf-stat-number"><?php echo esc_html(number_format($products_with_local_stock)); ?></p>
                 <small>Products in warehouse</small>
             </div>
         </div>
@@ -79,7 +79,7 @@ if (isset($_GET['page']) && $_GET['page'] === 't14sf-dashboard') {
             <div class="t14sf-stat-icon">💰</div>
             <div class="t14sf-stat-content">
                 <h3>Turn14 Prices</h3>
-                <p class="t14sf-stat-number"><?php echo number_format($products_with_turn14_price); ?></p>
+                <p class="t14sf-stat-number"><?php echo esc_html(number_format($products_with_turn14_price)); ?></p>
                 <small>With Turn14 pricing</small>
             </div>
         </div>
@@ -88,7 +88,7 @@ if (isset($_GET['page']) && $_GET['page'] === 't14sf-dashboard') {
             <div class="t14sf-stat-icon">📊</div>
             <div class="t14sf-stat-content">
                 <h3>Turn14 Stock</h3>
-                <p class="t14sf-stat-number"><?php echo number_format($products_with_turn14_stock); ?></p>
+                <p class="t14sf-stat-number"><?php echo esc_html(number_format($products_with_turn14_stock)); ?></p>
                 <small>Available from Turn14</small>
             </div>
         </div>
