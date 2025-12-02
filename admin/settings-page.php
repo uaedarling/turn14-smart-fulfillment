@@ -62,7 +62,7 @@ if (isset($_GET['page']) && $_GET['page'] === 't14sf-dashboard') {
             <div class="t14sf-stat-icon">📦</div>
             <div class="t14sf-stat-content">
                 <h3>Total Products</h3>
-                <p class="t14sf-stat-number"><?php echo number_format($total_products); ?></p>
+                <p class="t14sf-stat-number"><?php echo esc_html(number_format($total_products)); ?></p>
             </div>
         </div>
         
