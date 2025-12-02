@@ -40,7 +40,7 @@ class T14SF_Product_Meta_Box {
         $turn14_stock = ($turn14_stock === '') ? 0 : intval($turn14_stock);
         
         $threshold = intval(Turn14_Smart_Fulfillment::get_option('stock_threshold', 0));
-        $active_source = ($local_stock > $threshold) ?  'local' : 'turn14';
+        $active_source = ($local_stock > $threshold) ? 'local' : 'turn14';
         ?>
         
         <style>
@@ -48,21 +48,21 @@ class T14SF_Product_Meta_Box {
             .t14sf-meta-section { padding: 12px; border-bottom: 1px solid #ddd; }
             .t14sf-meta-section:last-child { border-bottom: none; }
             .t14sf-meta-row { display: flex; justify-content: space-between; margin: 8px 0; }
-            . t14sf-meta-label { font-weight: 600; color: #666; }
+            .t14sf-meta-label { font-weight: 600; color: #666; }
             .t14sf-meta-value { font-weight: 700; }
             .t14sf-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
             .t14sf-badge-success { background: #d1fae5; color: #059669; }
             .t14sf-badge-primary { background: #dbeafe; color: #1e40af; }
             .t14sf-badge-danger { background: #fee2e2; color: #dc2626; }
             .t14sf-input-group { margin: 10px 0; }
-            . t14sf-input-group label { display: block; margin-bottom: 4px; font-size: 12px; font-weight: 600; color: #666; }
-            . t14sf-input-group input { width: 100%; }
+            .t14sf-input-group label { display: block; margin-bottom: 4px; font-size: 12px; font-weight: 600; color: #666; }
+            .t14sf-input-group input { width: 100%; }
         </style>
         
         <div class="t14sf-meta-box">
             <div class="t14sf-meta-section">
                 <div style="text-align: center; margin-bottom: 10px;">
-                    <? php if ($active_source === 'local'): ?>
+                    <?php if ($active_source === 'local'): ?>
                         <span class="t14sf-badge t14sf-badge-success" style="font-size: 13px;">🏭 ACTIVE: LOCAL WAREHOUSE</span>
                     <?php else: ?>
                         <span class="t14sf-badge t14sf-badge-primary" style="font-size: 13px;">📦 ACTIVE: TURN14 DROP-SHIP</span>
@@ -72,7 +72,7 @@ class T14SF_Product_Meta_Box {
                 <div class="t14sf-meta-row">
                     <span class="t14sf-meta-label">Local Stock:</span>
                     <span class="t14sf-meta-value">
-                        <span class="t14sf-badge <? php echo $local_stock > 0 ? 't14sf-badge-success' : 't14sf-badge-danger'; ?>">
+                        <span class="t14sf-badge <?php echo $local_stock > 0 ? 't14sf-badge-success' : 't14sf-badge-danger'; ?>">
                             <?php echo $local_stock; ?>
                         </span>
                     </span>
@@ -81,7 +81,7 @@ class T14SF_Product_Meta_Box {
                 <div class="t14sf-meta-row">
                     <span class="t14sf-meta-label">Turn14 Stock:</span>
                     <span class="t14sf-meta-value">
-                        <span class="t14sf-badge <?php echo $turn14_stock > 0 ?  't14sf-badge-primary' : 't14sf-badge-danger'; ?>">
+                        <span class="t14sf-badge <?php echo $turn14_stock > 0 ? 't14sf-badge-primary' : 't14sf-badge-danger'; ?>">
                             <?php echo $turn14_stock; ?>
                         </span>
                     </span>
@@ -92,7 +92,7 @@ class T14SF_Product_Meta_Box {
                 <div class="t14sf-meta-row">
                     <span class="t14sf-meta-label">Local Price:</span>
                     <span class="t14sf-meta-value">
-                        <? php echo $local_price ?  wc_price($local_price) : '—'; ?>
+                        <?php echo $local_price ? wc_price($local_price) : '—'; ?>
                     </span>
                 </div>
                 
@@ -103,7 +103,7 @@ class T14SF_Product_Meta_Box {
                     </span>
                 </div>
                 
-                <? php if ($turn14_sku): ?>
+                <?php if ($turn14_sku): ?>
                 <div class="t14sf-meta-row">
                     <span class="t14sf-meta-label">Turn14 SKU:</span>
                     <span class="t14sf-meta-value">
@@ -124,7 +124,7 @@ class T14SF_Product_Meta_Box {
                            min="0"
                            placeholder="Leave empty for default" />
                     <p class="description" style="margin: 4px 0 0 0; font-size: 11px;">
-                        Set a custom price for local warehouse stock. 
+                        Set a custom price for local warehouse stock.
                     </p>
                 </div>
             </div>
@@ -134,7 +134,7 @@ class T14SF_Product_Meta_Box {
     }
     
     public function save_meta_box($post_id, $post) {
-        if (! isset($_POST['t14sf_product_meta_nonce']) || 
+        if (!isset($_POST['t14sf_product_meta_nonce']) || 
             !wp_verify_nonce($_POST['t14sf_product_meta_nonce'], 't14sf_product_meta_nonce')) {
             return;
         }
@@ -143,7 +143,7 @@ class T14SF_Product_Meta_Box {
             return;
         }
         
-        if (! current_user_can('edit_post', $post_id)) {
+        if (!current_user_can('edit_post', $post_id)) {
             return;
         }
         
