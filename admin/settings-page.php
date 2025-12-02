@@ -22,7 +22,7 @@ if (isset($_POST['t14sf_save_settings'])) {
     Turn14_Smart_Fulfillment::update_option('local_methods', $local_methods);
 
     // Redirect to prevent resubmission with warning handling
-    wp_redirect(admin_url('admin.php?page=turn14-smart-fulfillment&settings-updated=true'));
+    wp_redirect(admin_url('admin.php?page=t14sf-dashboard&settings-updated=true'));
     exit;
 }
 
@@ -45,7 +45,7 @@ $shipping_methods = WC()->shipping()->get_shipping_methods();
 
 <?php
 // Conditional logic added to restrict rendering output to settings page
-if (isset($_GET['page']) && $_GET['page'] === 'turn14-smart-fulfillment') {
+if (isset($_GET['page']) && $_GET['page'] === 't14sf-dashboard') {
 ?>
 <div class="wrap t14sf-dashboard">
     <h1>🚀 Turn14 Smart Fulfillment Dashboard</h1>
