@@ -43,6 +43,10 @@ $products_with_turn14_stock = $wpdb->get_var("SELECT COUNT(DISTINCT post_id) FRO
 $shipping_methods = WC()->shipping()->get_shipping_methods();
 ?>
 
+<?php
+// Conditional logic added to restrict rendering output to settings page
+if (isset($_GET['page']) && $_GET['page'] === 'turn14-smart-fulfillment') {
+?>
 <div class="wrap t14sf-dashboard">
     <h1>🚀 Turn14 Smart Fulfillment Dashboard</h1>
     <p class="description">Intelligent stock, pricing, and shipping management for Turn14 integration.</p>
@@ -58,3 +62,9 @@ $shipping_methods = WC()->shipping()->get_shipping_methods();
         
         <div class="t14sf-stat-card t14sf-stat-success">
             <div class="t14sf-stat-icon">🏭</div>
+        </div>
+    </div>
+</div>
+<?php
+} // End conditional logic
+?>
