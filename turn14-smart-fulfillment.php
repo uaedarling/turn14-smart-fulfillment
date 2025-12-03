@@ -65,14 +65,14 @@ class Turn14_Smart_Fulfillment {
     }
     
     private function init_hooks() {
-        register_activation_hook(T14SF_PLUGIN_FILE, array($this, 'activate'));
-        register_deactivation_hook(T14SF_PLUGIN_FILE, array($this, 'deactivate'));
+        // Activation/deactivation hooks are registered at file scope (after class definition).
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_assets'));
         add_filter('plugin_action_links_' . T14SF_PLUGIN_BASENAME, array($this, 'add_settings_link'));
     }
     
-    public function activate() {
+    // Made static so activation/deactivation can be safely registered at plugin load time.
+    public static function activate() {
         if (false === get_option('t14sf_activated')) {
             add_option('t14sf_activated', current_time('mysql'));
             add_option('t14sf_version', T14SF_VERSION);
@@ -84,7 +84,7 @@ class Turn14_Smart_Fulfillment {
         flush_rewrite_rules();
     }
     
-    public function deactivate() {
+    public static function deactivate() {
         flush_rewrite_rules();
     }
     
@@ -110,7 +110,8 @@ class Turn14_Smart_Fulfillment {
     }
     
     public function render_dashboard() {
-        include T14SF_PLUGIN_DIR . 'admin/settings-page.php';
+        // Use include_once to avoid accidental redeclaration if settings-page.php was loaded earlier.
+        include_once T14SF_PLUGIN_DIR . 'admin/settings-page.php';
     }
     
     public function enqueue_admin_assets($hook) {
@@ -138,3 +139,7 @@ function turn14_smart_fulfillment_init() {
     return Turn14_Smart_Fulfillment::get_instance();
 }
 add_action('plugins_loaded', 'turn14_smart_fulfillment_init');
+
+// Register activation and deactivation hooks at file load so they're active during plugin activation.
+register_activation_hook(T14SF_PLUGIN_FILE, array('Turn14_Smart_Fulfillment', 'activate'));
+register_deactivation_hook(T14SF_PLUGIN_FILE, array('Turn14_Smart_Fulfillment', 'deactivate'));
