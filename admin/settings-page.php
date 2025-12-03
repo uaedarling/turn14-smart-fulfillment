@@ -26,26 +26,23 @@ if (isset($_POST['t14sf_save_settings'])) {
     exit;
 }
 
-$price_mode = Turn14_Smart_Fulfillment::get_option('price_mode', 'auto');
-$stock_threshold = Turn14_Smart_Fulfillment::get_option('stock_threshold', 0);
-$turn14_method_id = Turn14_Smart_Fulfillment::get_option('turn14_method_id', 'turn14_shipping');
-$local_methods = Turn14_Smart_Fulfillment::get_option('local_methods', array('flat_rate', 'free_shipping', 'local_pickup'));
-
-global $wpdb;
-$total_products = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = 'product' AND post_status = 'publish'");
-
-$products_with_local_stock = $wpdb->get_var("SELECT COUNT(DISTINCT post_id) FROM {$wpdb->postmeta} WHERE meta_key = '_stock' AND CAST(meta_value AS UNSIGNED) > 0");
-
-$products_with_turn14_price = $wpdb->get_var("SELECT COUNT(DISTINCT post_id) FROM {$wpdb->postmeta} WHERE meta_key = '_turn14_price' AND meta_value != ''");
-
-$products_with_turn14_stock = $wpdb->get_var("SELECT COUNT(DISTINCT post_id) FROM {$wpdb->postmeta} WHERE meta_key = '_turn14_stock' AND CAST(meta_value AS UNSIGNED) > 0");
-
-$shipping_methods = WC()->shipping()->get_shipping_methods();
-?>
-
-<?php
 // Conditional logic added to restrict rendering output to settings page
 if (isset($_GET['page']) && $_GET['page'] === 't14sf-dashboard') {
+    $price_mode = Turn14_Smart_Fulfillment::get_option('price_mode', 'auto');
+    $stock_threshold = Turn14_Smart_Fulfillment::get_option('stock_threshold', 0);
+    $turn14_method_id = Turn14_Smart_Fulfillment::get_option('turn14_method_id', 'turn14_shipping');
+    $local_methods = Turn14_Smart_Fulfillment::get_option('local_methods', array('flat_rate', 'free_shipping', 'local_pickup'));
+
+    global $wpdb;
+    $total_products = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = 'product' AND post_status = 'publish'");
+
+    $products_with_local_stock = $wpdb->get_var("SELECT COUNT(DISTINCT post_id) FROM {$wpdb->postmeta} WHERE meta_key = '_stock' AND CAST(meta_value AS UNSIGNED) > 0");
+
+    $products_with_turn14_price = $wpdb->get_var("SELECT COUNT(DISTINCT post_id) FROM {$wpdb->postmeta} WHERE meta_key = '_turn14_price' AND meta_value != ''");
+
+    $products_with_turn14_stock = $wpdb->get_var("SELECT COUNT(DISTINCT post_id) FROM {$wpdb->postmeta} WHERE meta_key = '_turn14_stock' AND CAST(meta_value AS UNSIGNED) > 0");
+
+    $shipping_methods = WC()->shipping()->get_shipping_methods();
 ?>
 <div class="wrap t14sf-dashboard">
     <h1>🚀 Turn14 Smart Fulfillment Dashboard</h1>
