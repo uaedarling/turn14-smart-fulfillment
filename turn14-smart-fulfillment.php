@@ -49,7 +49,7 @@ class Turn14_Smart_Fulfillment {
     }
     
     public function woocommerce_missing_notice() {
-        echo '<div class="notice notice-error"><p><strong>Turn14 Smart Fulfillment</strong> requires WooCommerce to be installed and activated.</p></div>';
+        echo '';
     }
     
     private function load_dependencies() {
@@ -121,7 +121,7 @@ class Turn14_Smart_Fulfillment {
     }
     
     public function add_settings_link($links) {
-        $settings_link = '<a href="' . admin_url('admin.php?page=t14sf-dashboard') . '">Settings</a>';
+        $settings_link = '<a>Settings</a>';
         array_unshift($links, $settings_link);
         return $links;
     }
