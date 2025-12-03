@@ -86,13 +86,16 @@ class T14SF_Shipping_Splitter {
         $filtered = array();
         
         foreach ($rates as $rate_id => $rate) {
-            $method_id = $rate->method_id;
-            
+            // Use the public API to get the rate method id (safe with WC_Shipping_Rate)
+            $method_id = method_exists($rate, 'get_method_id') ? $rate->get_method_id() : (isset($rate->method_id) ? $rate->method_id : '');
+
             if ($package_type === 'local') {
+                // For local package: keep rates that are NOT the Turn14 drop-ship method
                 if ($method_id !== $turn14_method_id) {
                     $filtered[$rate_id] = $rate;
                 }
             } else {
+                // For turn14 package: keep only the Turn14 method
                 if ($method_id === $turn14_method_id) {
                     $filtered[$rate_id] = $rate;
                 }
