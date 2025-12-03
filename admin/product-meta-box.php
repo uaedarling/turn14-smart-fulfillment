@@ -63,26 +63,26 @@ class T14SF_Product_Meta_Box {
             <div class="t14sf-meta-section">
                 <div style="text-align: center; margin-bottom: 10px;">
                     <?php if ($active_source === 'local'): ?>
-                        <span class="t14sf-badge t14sf-badge-success" style="font-size: 13px;">🏭 ACTIVE: LOCAL WAREHOUSE</span>
+                        <span class="t14sf-badge t14sf-badge-success" style="font-size: 13px;"><?php echo esc_html_x('🏭 ACTIVE: LOCAL WAREHOUSE', 'meta box label', 'turn14-smart-fulfillment'); ?></span>
                     <?php else: ?>
-                        <span class="t14sf-badge t14sf-badge-primary" style="font-size: 13px;">📦 ACTIVE: TURN14 DROP-SHIP</span>
+                        <span class="t14sf-badge t14sf-badge-primary" style="font-size: 13px;"><?php echo esc_html_x('📦 ACTIVE: TURN14 DROP-SHIP', 'meta box label', 'turn14-smart-fulfillment'); ?></span>
                     <?php endif; ?>
                 </div>
                 
                 <div class="t14sf-meta-row">
-                    <span class="t14sf-meta-label">Local Stock:</span>
+                    <span class="t14sf-meta-label"><?php echo esc_html__('Local Stock:', 'turn14-smart-fulfillment'); ?></span>
                     <span class="t14sf-meta-value">
                         <span class="t14sf-badge <?php echo $local_stock > 0 ? 't14sf-badge-success' : 't14sf-badge-danger'; ?>">
-                            <?php echo $local_stock; ?>
+                            <?php echo esc_html( $local_stock ); ?>
                         </span>
                     </span>
                 </div>
                 
                 <div class="t14sf-meta-row">
-                    <span class="t14sf-meta-label">Turn14 Stock:</span>
+                    <span class="t14sf-meta-label"><?php echo esc_html__('Turn14 Stock:', 'turn14-smart-fulfillment'); ?></span>
                     <span class="t14sf-meta-value">
                         <span class="t14sf-badge <?php echo $turn14_stock > 0 ? 't14sf-badge-primary' : 't14sf-badge-danger'; ?>">
-                            <?php echo $turn14_stock; ?>
+                            <?php echo esc_html( $turn14_stock ); ?>
                         </span>
                     </span>
                 </div>
@@ -90,22 +90,22 @@ class T14SF_Product_Meta_Box {
             
             <div class="t14sf-meta-section">
                 <div class="t14sf-meta-row">
-                    <span class="t14sf-meta-label">Local Price:</span>
+                    <span class="t14sf-meta-label"><?php echo esc_html__('Local Price:', 'turn14-smart-fulfillment'); ?></span>
                     <span class="t14sf-meta-value">
-                        <?php echo $local_price ? wc_price($local_price) : '—'; ?>
+                        <?php echo $local_price !== '' ? wp_kses_post( wc_price( floatval( $local_price ) ) ) : '&mdash;'; ?>
                     </span>
                 </div>
                 
                 <div class="t14sf-meta-row">
-                    <span class="t14sf-meta-label">Turn14 Price:</span>
+                    <span class="t14sf-meta-label"><?php echo esc_html__('Turn14 Price:', 'turn14-smart-fulfillment'); ?></span>
                     <span class="t14sf-meta-value">
-                        <?php echo $turn14_price ? wc_price($turn14_price) : '—'; ?>
+                        <?php echo $turn14_price !== '' ? wp_kses_post( wc_price( floatval( $turn14_price ) ) ) : '&mdash;'; ?>
                     </span>
                 </div>
                 
                 <?php if ($turn14_sku): ?>
                 <div class="t14sf-meta-row">
-                    <span class="t14sf-meta-label">Turn14 SKU:</span>
+                    <span class="t14sf-meta-label"><?php echo esc_html__('Turn14 SKU:', 'turn14-smart-fulfillment'); ?></span>
                     <span class="t14sf-meta-value">
                         <code><?php echo esc_html($turn14_sku); ?></code>
                     </span>
@@ -115,16 +115,16 @@ class T14SF_Product_Meta_Box {
             
             <div class="t14sf-meta-section">
                 <div class="t14sf-input-group">
-                    <label for="t14sf_local_price_override">Override Local Price</label>
+                    <label for="t14sf_local_price_override"><?php echo esc_html__('Override Local Price', 'turn14-smart-fulfillment'); ?></label>
                     <input type="number" 
                            id="t14sf_local_price_override" 
                            name="t14sf_local_price_override" 
-                           value="<?php echo esc_attr($local_price); ?>" 
+                           value="<?php echo esc_attr( $local_price !== '' ? floatval( $local_price ) : '' ); ?>" 
                            step="0.01" 
                            min="0"
-                           placeholder="Leave empty for default" />
+                           placeholder="<?php echo esc_attr__('Leave empty for default', 'turn14-smart-fulfillment'); ?>" />
                     <p class="description" style="margin: 4px 0 0 0; font-size: 11px;">
-                        Set a custom price for local warehouse stock.
+                        <?php echo esc_html__('Set a custom price for local warehouse stock.', 'turn14-smart-fulfillment'); ?>
                     </p>
                 </div>
             </div>
@@ -148,9 +148,12 @@ class T14SF_Product_Meta_Box {
         }
         
         if (isset($_POST['t14sf_local_price_override'])) {
-            $local_price = sanitize_text_field($_POST['t14sf_local_price_override']);
-            if ($local_price !== '') {
-                update_post_meta($post_id, '_local_price', floatval($local_price));
+            $local_price_raw = sanitize_text_field($_POST['t14sf_local_price_override']);
+            // Allow empty to clear override
+            if ($local_price_raw !== '') {
+                // Use floatval after sanitization; if WooCommerce available you could use wc_format_decimal()
+                $local_price = floatval($local_price_raw);
+                update_post_meta($post_id, '_local_price', $local_price);
             } else {
                 delete_post_meta($post_id, '_local_price');
             }
