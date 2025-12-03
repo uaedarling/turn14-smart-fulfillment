@@ -1,6 +1,6 @@
 /* Turn14 Smart Fulfillment - Admin Styles */
 
-. t14sf-dashboard {
+.t14sf-dashboard {
     max-width: 1400px;
 }
 
@@ -12,7 +12,7 @@
     margin: 30px 0;
 }
 
-. t14sf-stat-card {
+.t14sf-stat-card {
     background: white;
     padding: 24px;
     border-radius: 8px;
@@ -29,7 +29,7 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.t14sf-stat-card. t14sf-stat-success {
+.t14sf-stat-card.t14sf-stat-success {
     border-left-color: #10b981;
 }
 
@@ -59,7 +59,7 @@
     letter-spacing: 0.5px;
 }
 
-. t14sf-stat-number {
+.t14sf-stat-number {
     font-size: 36px;
     font-weight: 700;
     margin: 0;
@@ -67,7 +67,7 @@
     line-height: 1;
 }
 
-.t14sf-stat-success . t14sf-stat-number {
+.t14sf-stat-success .t14sf-stat-number {
     color: #10b981;
 }
 
@@ -75,7 +75,7 @@
     color: #f59e0b;
 }
 
-. t14sf-stat-danger . t14sf-stat-number {
+.t14sf-stat-danger .t14sf-stat-number {
     color: #ef4444;
 }
 
@@ -106,7 +106,7 @@
     margin: 12px 0;
 }
 
-. t14sf-meta-table th,
+.t14sf-meta-table th,
 .t14sf-meta-table td {
     padding: 10px;
     text-align: left;
@@ -160,7 +160,7 @@
     display: inline-block;
 }
 
-. t14sf-badge-secondary {
+.t14sf-badge-secondary {
     background: #f1f5f9;
     color: #64748b;
     padding: 4px 10px;
