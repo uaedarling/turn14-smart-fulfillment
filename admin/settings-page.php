@@ -1,6 +1,6 @@
 <?php
 /**
- * Main Settings/Dashboard Page
+ * Main Settings/Dashboard Page test
  */
 
 if (!defined('ABSPATH')) {
