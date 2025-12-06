@@ -52,12 +52,33 @@ $products_with_local_stock = (int) $wpdb->get_var("SELECT COUNT(DISTINCT post_id
 $products_with_turn14_price = (int) $wpdb->get_var("SELECT COUNT(DISTINCT post_id) FROM {$wpdb->postmeta} WHERE meta_key = '_turn14_price' AND meta_value != ''");
 $products_with_turn14_stock = (int) $wpdb->get_var("SELECT COUNT(DISTINCT post_id) FROM {$wpdb->postmeta} WHERE meta_key = '_turn14_stock' AND CAST(meta_value AS UNSIGNED) > 0");
 
-// --- 4. Get WC Shipping Methods ---
+// --- 4. Get WC Shipping Methods SAFELY ---
 $wc_shipping_methods = array();
-if (function_exists('WC') && WC()->shipping()) {
-    $wc_methods = WC()->shipping()->get_shipping_methods();
-    foreach($wc_methods as $method) {
-        $wc_shipping_methods[$method->id] = $method->method_title;
+$wc_available = false;
+
+// Check if WooCommerce is active and shipping is available
+if (function_exists('WC')) {
+    try {
+        // Make sure we have WooCommerce instance
+        $woocommerce = WC();
+        if ($woocommerce && method_exists($woocommerce, 'shipping')) {
+            $shipping = $woocommerce->shipping();
+            if ($shipping && method_exists($shipping, 'get_shipping_methods')) {
+                $wc_methods = $shipping->get_shipping_methods();
+                if (is_array($wc_methods) && !empty($wc_methods)) {
+                    $wc_available = true;
+                    foreach($wc_methods as $method) {
+                        if (is_object($method) && property_exists($method, 'id') && property_exists($method, 'method_title')) {
+                            $wc_shipping_methods[$method->id] = $method->method_title;
+                        }
+                    }
+                }
+            }
+        }
+    } catch (Exception $e) {
+        // Log error but don't break the page
+        error_log('Turn14 Smart Fulfillment: Error fetching shipping methods - ' . $e->getMessage());
+        $wc_available = false;
     }
 }
 
@@ -140,6 +161,15 @@ add_action('admin_head', function() {
     
     .t14sf-settings-section th {
         width: 250px;
+    }
+    
+    .t14sf-error-notice {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 15px;
+        border: 1px solid #f5c6cb;
+        border-radius: 4px;
+        margin: 20px 0;
     }
     </style>
     <?php
@@ -237,7 +267,7 @@ add_action('admin_head', function() {
                         <p class="description" style="margin-bottom: 15px;">Select methods available for Local Warehouse items:</p>
                         <fieldset>
                             <?php 
-                            if (!empty($wc_shipping_methods)) {
+                            if ($wc_available && !empty($wc_shipping_methods)) {
                                 foreach ($wc_shipping_methods as $id => $title) {
                                     ?>
                                     <label style="display:block; margin-bottom: 10px; padding: 5px 0;">
@@ -247,7 +277,12 @@ add_action('admin_head', function() {
                                     <?php 
                                 }
                             } else {
-                                echo '<p class="description">No shipping methods found. Please configure WooCommerce Shipping zones first.</p>';
+                                echo '<div class="t14sf-error-notice">';
+                                echo '<p><strong>Warning:</strong> Unable to load WooCommerce shipping methods.</p>';
+                                echo '<p>Please ensure WooCommerce is active and shipping methods are configured.</p>';
+                                echo '<p>You can manually enter shipping method IDs in a comma-separated list below:</p>';
+                                echo '<input type="text" name="local_methods_fallback" value="' . esc_attr(implode(',', $local_methods)) . '" class="regular-text" placeholder="flat_rate,free_shipping,local_pickup">';
+                                echo '</div>';
                             }
                             ?>
                         </fieldset>
