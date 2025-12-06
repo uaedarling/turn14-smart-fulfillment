@@ -1,6 +1,7 @@
 <?php
 /**
  * Main Settings/Dashboard Page
+ * Fixed for stability and PHP 8+ compatibility
  */
 
 if (!defined('ABSPATH')) {
@@ -19,7 +20,7 @@ if (isset($_POST['t14sf_save_settings'])) {
     $stock_threshold = isset($_POST['stock_threshold']) ? intval($_POST['stock_threshold']) : 0;
     $turn14_method_id = isset($_POST['turn14_method_id']) ? sanitize_text_field($_POST['turn14_method_id']) : '';
     
-    // Safety: Force array type
+    // Safety: Force array type and sanitize
     $raw_methods = isset($_POST['local_methods']) ? $_POST['local_methods'] : array();
     $local_methods = is_array($raw_methods) ? array_map('sanitize_text_field', $raw_methods) : array();
 
@@ -28,6 +29,7 @@ if (isset($_POST['t14sf_save_settings'])) {
     Turn14_Smart_Fulfillment::update_option('turn14_method_id', $turn14_method_id);
     Turn14_Smart_Fulfillment::update_option('local_methods', $local_methods);
 
+    // Redirect
     wp_redirect(admin_url('admin.php?page=t14sf-dashboard&settings-updated=true'));
     exit;
 }
@@ -37,7 +39,7 @@ $price_mode = Turn14_Smart_Fulfillment::get_option('price_mode', 'auto');
 $stock_threshold = Turn14_Smart_Fulfillment::get_option('stock_threshold', 0);
 $turn14_method_id = Turn14_Smart_Fulfillment::get_option('turn14_method_id', 'turn14_shipping');
 
-// Safety: Ensure local_methods is ALWAYS an array to prevent fatal errors in_array()
+// Safety: Ensure local_methods is ALWAYS an array
 $local_methods = Turn14_Smart_Fulfillment::get_option('local_methods', array('flat_rate', 'free_shipping', 'local_pickup'));
 if (!is_array($local_methods)) {
     $local_methods = (array) $local_methods;
@@ -151,24 +153,35 @@ if (isset($_GET['page']) && sanitize_text_field($_GET['page']) === 't14sf-dashbo
                     <th scope="row"><label for="local_methods">Local Shipping Methods</label></th>
                     <td>
                         <p class="description" style="margin-bottom: 8px;">Select methods available for Local Warehouse items:</p>
-                        <?php if (!empty($wc_shipping_methods)): ?>
-                            <?php foreach ($wc_shipping_methods as $id => $title): ?>
+                        <?php 
+                        if (!empty($wc_shipping_methods)) {
+                            foreach ($wc_shipping_methods as $id => $title) {
+                                ?>
                                 <label style="display:block; margin-bottom: 5px;">
                                     <input type="checkbox" name="local_methods[]" value="<?php echo esc_attr($id); ?>" <?php checked(in_array($id, $local_methods)); ?>>
                                     <?php echo esc_html($title); ?> (<code><?php echo esc_html($id); ?></code>)
                                 </label>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <p>No shipping methods found. Please configure WooCommerce Shipping zones first.</p>
-                        <?php endif; ?>
+                                <?php 
+                            }
+                        } else {
+                            echo '<p>No shipping methods found. Please configure WooCommerce Shipping zones first.</p>';
+                        }
+                        ?>
                     </td>
                 </tr>
             </table>
         </div>
 
-        <?php submit_button('Save Settings'); ?>
+        <?php 
+        if (function_exists('submit_button')) {
+            submit_button('Save Settings'); 
+        } else {
+            // Fallback for weird edge cases
+            echo '<button type="submit" class="button button-primary">Save Settings</button>';
+        }
+        ?>
     </form>
 </div>
 <?php
 } // End conditional render
-?>
+// No closing PHP tag to prevent whitespace issues
