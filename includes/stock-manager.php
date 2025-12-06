@@ -51,11 +51,11 @@ class T14SF_Stock_Manager {
         $turn14_stock = ($turn14_stock === '') ? 0 : intval($turn14_stock);
         
         if ($local_stock > 0) {
-            echo '<div class="t14sf-stock-notice t14sf-local-stock">';
+            echo '<div class="t14sf-stock-notice t14sf-local-stock" style="padding:10px; background:#d1fae5; color:#065f46; margin:10px 0; border-radius:4px;">';
             echo '✅ <strong>In Stock</strong> - Ships from our warehouse';
             echo '</div>';
         } elseif ($turn14_stock > 0) {
-            echo '<div class="t14sf-stock-notice t14sf-dropship-stock">';
+            echo '<div class="t14sf-stock-notice t14sf-dropship-stock" style="padding:10px; background:#dbeafe; color:#1e40af; margin:10px 0; border-radius:4px;">';
             echo '📦 <strong>Available</strong> - Drop-ships from supplier';
             echo '</div>';
         }
