@@ -30,7 +30,7 @@ if (isset($_POST['t14sf_save_settings'])) {
     Turn14_Smart_Fulfillment::update_option('local_methods', $local_methods);
 
     // Redirect
-    wp_safe_redirect(admin_url('admin.php?page=t14sf-dashboard&settings-updated=true'));
+    wp_redirect(admin_url('admin.php?page=t14sf-dashboard&settings-updated=true'));
     exit;
 }
 
@@ -52,130 +52,18 @@ $products_with_local_stock = (int) $wpdb->get_var("SELECT COUNT(DISTINCT post_id
 $products_with_turn14_price = (int) $wpdb->get_var("SELECT COUNT(DISTINCT post_id) FROM {$wpdb->postmeta} WHERE meta_key = '_turn14_price' AND meta_value != ''");
 $products_with_turn14_stock = (int) $wpdb->get_var("SELECT COUNT(DISTINCT post_id) FROM {$wpdb->postmeta} WHERE meta_key = '_turn14_stock' AND CAST(meta_value AS UNSIGNED) > 0");
 
-// --- 4. Get WC Shipping Methods SAFELY ---
+// --- 4. Get WC Shipping Methods ---
 $wc_shipping_methods = array();
-$wc_available = false;
-
-// Check if WooCommerce is active and shipping is available
-if (function_exists('WC')) {
-    try {
-        // Make sure we have WooCommerce instance
-        $woocommerce = WC();
-        if ($woocommerce && method_exists($woocommerce, 'shipping')) {
-            $shipping = $woocommerce->shipping();
-            if ($shipping && method_exists($shipping, 'get_shipping_methods')) {
-                $wc_methods = $shipping->get_shipping_methods();
-                if (is_array($wc_methods) && !empty($wc_methods)) {
-                    $wc_available = true;
-                    foreach($wc_methods as $method) {
-                        if (is_object($method) && property_exists($method, 'id') && property_exists($method, 'method_title')) {
-                            $wc_shipping_methods[$method->id] = $method->method_title;
-                        }
-                    }
-                }
-            }
-        }
-    } catch (Exception $e) {
-        // Log error but don't break the page
-        error_log('Turn14 Smart Fulfillment: Error fetching shipping methods - ' . $e->getMessage());
-        $wc_available = false;
+if (function_exists('WC') && WC()->shipping()) {
+    $wc_methods = WC()->shipping()->get_shipping_methods();
+    foreach($wc_methods as $method) {
+        $wc_shipping_methods[$method->id] = $method->method_title;
     }
 }
 
-// --- 5. Add Admin CSS ---
-add_action('admin_head', function() {
-    ?>
-    <style>
-    .t14sf-dashboard {
-        max-width: 1200px;
-        margin: 20px auto;
-    }
-    
-    .t14sf-stats-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 20px;
-        margin: 30px 0;
-    }
-    
-    .t14sf-stat-card {
-        background: #fff;
-        border: 1px solid #ccd0d4;
-        border-radius: 8px;
-        padding: 20px;
-        display: flex;
-        align-items: center;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.04);
-    }
-    
-    .t14sf-stat-icon {
-        font-size: 32px;
-        margin-right: 20px;
-    }
-    
-    .t14sf-stat-content h3 {
-        margin: 0 0 5px 0;
-        font-size: 14px;
-        color: #646970;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    
-    .t14sf-stat-number {
-        font-size: 28px;
-        font-weight: 600;
-        margin: 0;
-        color: #1d2327;
-    }
-    
-    .t14sf-stat-success .t14sf-stat-number {
-        color: #00a32a;
-    }
-    
-    .t14sf-stat-primary .t14sf-stat-number {
-        color: #2271b1;
-    }
-    
-    .t14sf-stat-warning .t14sf-stat-number {
-        color: #dba617;
-    }
-    
-    .t14sf-settings-section {
-        background: #fff;
-        border: 1px solid #ccd0d4;
-        border-radius: 8px;
-        padding: 25px;
-        margin: 30px 0;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.04);
-    }
-    
-    .t14sf-settings-section h2 {
-        margin-top: 0;
-        padding-bottom: 15px;
-        border-bottom: 1px solid #dcdcde;
-    }
-    
-    .t14sf-settings-section .form-table {
-        margin-top: 15px;
-    }
-    
-    .t14sf-settings-section th {
-        width: 250px;
-    }
-    
-    .t14sf-error-notice {
-        background: #f8d7da;
-        color: #721c24;
-        padding: 15px;
-        border: 1px solid #f5c6cb;
-        border-radius: 4px;
-        margin: 20px 0;
-    }
-    </style>
-    <?php
-});
-
-// --- 6. Render Page ---
+// --- 5. Render Page ---
+// Restrict rendering output to our settings page
+if (isset($_GET['page']) && sanitize_text_field($_GET['page']) === 't14sf-dashboard') {
 ?>
 <div class="wrap t14sf-dashboard">
     <h1>🚀 Turn14 Smart Fulfillment Dashboard</h1>
@@ -230,7 +118,7 @@ add_action('admin_head', function() {
                 <tr>
                     <th scope="row"><label for="price_mode">Price Display Mode</label></th>
                     <td>
-                        <select name="price_mode" id="price_mode" class="regular-text">
+                        <select name="price_mode" id="price_mode">
                             <option value="auto" <?php selected($price_mode, 'auto'); ?>>Auto (Recommended)</option>
                             <option value="always_local" <?php selected($price_mode, 'always_local'); ?>>Always Local</option>
                             <option value="always_turn14" <?php selected($price_mode, 'always_turn14'); ?>>Always Turn14</option>
@@ -244,7 +132,7 @@ add_action('admin_head', function() {
                 <tr>
                     <th scope="row"><label for="stock_threshold">Stock Threshold</label></th>
                     <td>
-                        <input type="number" name="stock_threshold" id="stock_threshold" value="<?php echo esc_attr($stock_threshold); ?>" class="small-text" min="0">
+                        <input type="number" name="stock_threshold" id="stock_threshold" value="<?php echo esc_attr($stock_threshold); ?>" class="small-text">
                         <p class="description">Switch to Turn14 fulfillment when local stock drops to this level or below.</p>
                     </td>
                 </tr>
@@ -264,33 +152,36 @@ add_action('admin_head', function() {
                 <tr>
                     <th scope="row"><label for="local_methods">Local Shipping Methods</label></th>
                     <td>
-                        <p class="description" style="margin-bottom: 15px;">Select methods available for Local Warehouse items:</p>
-                        <fieldset>
-                            <?php 
-                            if ($wc_available && !empty($wc_shipping_methods)) {
-                                foreach ($wc_shipping_methods as $id => $title) {
-                                    ?>
-                                    <label style="display:block; margin-bottom: 10px; padding: 5px 0;">
-                                        <input type="checkbox" name="local_methods[]" value="<?php echo esc_attr($id); ?>" <?php checked(in_array($id, $local_methods)); ?>>
-                                        <?php echo esc_html($title); ?> (<code><?php echo esc_html($id); ?></code>)
-                                    </label>
-                                    <?php 
-                                }
-                            } else {
-                                echo '<div class="t14sf-error-notice">';
-                                echo '<p><strong>Warning:</strong> Unable to load WooCommerce shipping methods.</p>';
-                                echo '<p>Please ensure WooCommerce is active and shipping methods are configured.</p>';
-                                echo '<p>You can manually enter shipping method IDs in a comma-separated list below:</p>';
-                                echo '<input type="text" name="local_methods_fallback" value="' . esc_attr(implode(',', $local_methods)) . '" class="regular-text" placeholder="flat_rate,free_shipping,local_pickup">';
-                                echo '</div>';
+                        <p class="description" style="margin-bottom: 8px;">Select methods available for Local Warehouse items:</p>
+                        <?php 
+                        if (!empty($wc_shipping_methods)) {
+                            foreach ($wc_shipping_methods as $id => $title) {
+                                ?>
+                                <label style="display:block; margin-bottom: 5px;">
+                                    <input type="checkbox" name="local_methods[]" value="<?php echo esc_attr($id); ?>" <?php checked(in_array($id, $local_methods)); ?>>
+                                    <?php echo esc_html($title); ?> (<code><?php echo esc_html($id); ?></code>)
+                                </label>
+                                <?php 
                             }
-                            ?>
-                        </fieldset>
+                        } else {
+                            echo '<p>No shipping methods found. Please configure WooCommerce Shipping zones first.</p>';
+                        }
+                        ?>
                     </td>
                 </tr>
             </table>
         </div>
 
-        <?php submit_button('Save Settings', 'primary', 'submit', true); ?>
+        <?php 
+        if (function_exists('submit_button')) {
+            submit_button('Save Settings'); 
+        } else {
+            // Fallback for weird edge cases
+            echo '<button type="submit" class="button button-primary">Save Settings</button>';
+        }
+        ?>
     </form>
 </div>
+<?php
+} // End conditional render
+// No closing PHP tag to prevent whitespace issues
