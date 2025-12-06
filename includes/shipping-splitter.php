@@ -79,23 +79,21 @@ class T14SF_Shipping_Splitter {
         $turn14_method_id = Turn14_Smart_Fulfillment::get_option('turn14_method_id', 'turn14_shipping');
         $local_methods = Turn14_Smart_Fulfillment::get_option('local_methods', array());
         
-        if (empty($local_methods)) {
-            return $rates;
+        // Safety check to ensure array
+        if (!is_array($local_methods)) {
+            $local_methods = (array) $local_methods;
         }
         
         $filtered = array();
         
         foreach ($rates as $rate_id => $rate) {
-            // Use the public API to get the rate method id (safe with WC_Shipping_Rate)
             $method_id = method_exists($rate, 'get_method_id') ? $rate->get_method_id() : (isset($rate->method_id) ? $rate->method_id : '');
 
             if ($package_type === 'local') {
-                // For local package: keep rates that are NOT the Turn14 drop-ship method
-                if ($method_id !== $turn14_method_id) {
+                if (in_array($method_id, $local_methods)) {
                     $filtered[$rate_id] = $rate;
                 }
             } else {
-                // For turn14 package: keep only the Turn14 method
                 if ($method_id === $turn14_method_id) {
                     $filtered[$rate_id] = $rate;
                 }
