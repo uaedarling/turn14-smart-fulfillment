@@ -1,99 +1,122 @@
 <?php
 /**
- * Main Settings/Dashboard Page test
+ * Shipping Splitter
+ * Splits cart into local and Turn14 packages
  */
 
 if (!defined('ABSPATH')) {
     exit;
 }
 
-if (isset($_POST['t14sf_save_settings'])) {
-    // Capability check
-    if (! current_user_can('manage_options')) {
-        wp_die(__('You do not have permission to perform this action.', 'turn14-smart-fulfillment'));
-    }
-
-    // Nonce verification
-    check_admin_referer('t14sf_settings_nonce');
-
-    $price_mode = isset($_POST['price_mode']) ? sanitize_text_field($_POST['price_mode']) : 'auto';
-    $stock_threshold = isset($_POST['stock_threshold']) ? intval($_POST['stock_threshold']) : 0;
-    $turn14_method_id = isset($_POST['turn14_method_id']) ? sanitize_text_field($_POST['turn14_method_id']) : '';
-    $local_methods = isset($_POST['local_methods']) ? array_map('sanitize_text_field', (array) $_POST['local_methods']) : array();
-
-    // Update options
-    Turn14_Smart_Fulfillment::update_option('price_mode', $price_mode);
-    Turn14_Smart_Fulfillment::update_option('stock_threshold', $stock_threshold);
-    Turn14_Smart_Fulfillment::update_option('turn14_method_id', $turn14_method_id);
-    Turn14_Smart_Fulfillment::update_option('local_methods', $local_methods);
-
-    // Redirect to prevent resubmission and go back to correct admin page slug
-    wp_redirect(admin_url('admin.php?page=t14sf-dashboard&settings-updated=true'));
-    exit;
-}
-
-$price_mode = Turn14_Smart_Fulfillment::get_option('price_mode', 'auto');
-$stock_threshold = Turn14_Smart_Fulfillment::get_option('stock_threshold', 0);
-$turn14_method_id = Turn14_Smart_Fulfillment::get_option('turn14_method_id', 'turn14_shipping');
-$local_methods = Turn14_Smart_Fulfillment::get_option('local_methods', array('flat_rate', 'free_shipping', 'local_pickup'));
-
-global $wpdb;
-$total_products = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = 'product' AND post_status = 'publish'");
-
-$products_with_local_stock = (int) $wpdb->get_var("SELECT COUNT(DISTINCT post_id) FROM {$wpdb->postmeta} WHERE meta_key = '_stock' AND CAST(meta_value AS UNSIGNED) > 0");
-
-$products_with_turn14_price = (int) $wpdb->get_var("SELECT COUNT(DISTINCT post_id) FROM {$wpdb->postmeta} WHERE meta_key = '_turn14_price' AND meta_value != ''");
-
-$products_with_turn14_stock = (int) $wpdb->get_var("SELECT COUNT(DISTINCT post_id) FROM {$wpdb->postmeta} WHERE meta_key = '_turn14_stock' AND CAST(meta_value AS UNSIGNED) > 0");
-
-$shipping_methods = null;
-if (function_exists('WC') && WC()->shipping()) {
-    $shipping_methods = WC()->shipping()->get_shipping_methods();
-}
-
-?>
-<?php
-// Restrict rendering output to our settings page (use the real slug)
-if (isset($_GET['page']) && sanitize_text_field($_GET['page']) === 't14sf-dashboard') {
-?>
-<div class="wrap t14sf-dashboard">
-    <h1>🚀 Turn14 Smart Fulfillment Dashboard</h1>
-    <p class="description">Intelligent stock, pricing, and shipping management for Turn14 integration.</p>
+class T14SF_Shipping_Splitter {
     
-    <div class="t14sf-stats-grid">
-        <div class="t14sf-stat-card">
-            <div class="t14sf-stat-icon">📦</div>
-            <div class="t14sf-stat-content">
-                <h3>Total Products</h3>
-                <p class="t14sf-stat-number"><?php echo esc_html( number_format_i18n( $total_products ) ); ?></p>
-            </div>
-        </div>
+    public function __construct() {
+        add_filter('woocommerce_cart_shipping_packages', array($this, 'split_packages'), 10, 1);
+        add_filter('woocommerce_package_rates', array($this, 'filter_rates_by_package'), 10, 2);
+        add_filter('woocommerce_shipping_package_name', array($this, 'custom_package_name'), 10, 3);
+    }
+    
+    public function split_packages($packages) {
+        if (empty(WC()->cart)) {
+            return $packages;
+        }
         
-        <div class="t14sf-stat-card t14sf-stat-success">
-            <div class="t14sf-stat-icon">🏭</div>
-            <div class="t14sf-stat-content">
-                <h3>Products with Local Stock</h3>
-                <p class="t14sf-stat-number"><?php echo esc_html( number_format_i18n( $products_with_local_stock ) ); ?></p>
-            </div>
-        </div>
+        $local_items = array();
+        $turn14_items = array();
+        $threshold = intval(Turn14_Smart_Fulfillment::get_option('stock_threshold', 0));
+        
+        foreach (WC()->cart->get_cart() as $cart_key => $cart_item) {
+            $product = $cart_item['data'];
+            $product_id = $product->get_id();
+            
+            $local_stock = get_post_meta($product_id, '_stock', true);
+            $local_stock = ($local_stock === '') ? 0 : intval($local_stock);
+            
+            if ($local_stock > $threshold) {
+                $local_items[$cart_key] = $cart_item;
+            } else {
+                $turn14_items[$cart_key] = $cart_item;
+            }
+        }
+        
+        if (empty($local_items) || empty($turn14_items)) {
+            if (! empty($turn14_items)) {
+                $packages[0]['t14sf_type'] = 'turn14';
+            } else {
+                $packages[0]['t14sf_type'] = 'local';
+            }
+            return $packages;
+        }
+        
+        $base = reset($packages);
+        
+        $new_packages = array();
+        
+        $new_packages[] = array(
+            'contents' => $local_items,
+            'contents_cost' => array_sum(wp_list_pluck($local_items, 'line_total')),
+            'applied_coupons' => isset($base['applied_coupons']) ? $base['applied_coupons'] : array(),
+            'user' => isset($base['user']) ? $base['user'] : array(),
+            'destination' => isset($base['destination']) ? $base['destination'] : array(),
+            't14sf_type' => 'local',
+        );
+        
+        $new_packages[] = array(
+            'contents' => $turn14_items,
+            'contents_cost' => array_sum(wp_list_pluck($turn14_items, 'line_total')),
+            'applied_coupons' => isset($base['applied_coupons']) ? $base['applied_coupons'] : array(),
+            'user' => isset($base['user']) ? $base['user'] : array(),
+            'destination' => isset($base['destination']) ? $base['destination'] : array(),
+            't14sf_type' => 'turn14',
+        );
+        
+        return $new_packages;
+    }
+    
+    public function filter_rates_by_package($rates, $package) {
+        $package_type = isset($package['t14sf_type']) ? $package['t14sf_type'] : 'local';
+        
+        $turn14_method_id = Turn14_Smart_Fulfillment::get_option('turn14_method_id', 'turn14_shipping');
+        $local_methods = Turn14_Smart_Fulfillment::get_option('local_methods', array());
+        
+        // If no local methods configured, fallback to original behavior (allow all)
+        // or you might want to return empty array() to block checkout if settings are missing.
+        if (empty($local_methods) && $package_type === 'local') {
+             return $rates; 
+        }
+        
+        $filtered = array();
+        
+        foreach ($rates as $rate_id => $rate) {
+            // Safe method ID retrieval
+            $method_id = method_exists($rate, 'get_method_id') ? $rate->get_method_id() : (isset($rate->method_id) ? $rate->method_id : '');
 
-        <div class="t14sf-stat-card t14sf-stat-primary">
-            <div class="t14sf-stat-icon">💲</div>
-            <div class="t14sf-stat-content">
-                <h3>Products with Turn14 Price</h3>
-                <p class="t14sf-stat-number"><?php echo esc_html( number_format_i18n( $products_with_turn14_price ) ); ?></p>
-            </div>
-        </div>
+            if ($package_type === 'local') {
+                // FIX: Only allow methods specifically checked in settings
+                // We use in_array to check against the saved list
+                if (in_array($method_id, $local_methods)) {
+                    $filtered[$rate_id] = $rate;
+                }
+            } else {
+                // Turn14 package: keep ONLY the Turn14 method
+                if ($method_id === $turn14_method_id) {
+                    $filtered[$rate_id] = $rate;
+                }
+            }
+        }
+        
+        return $filtered;
+    }
+    
+    public function custom_package_name($name, $i, $package) {
+        $type = isset($package['t14sf_type']) ? $package['t14sf_type'] : 'local';
+        
+        if ($type === 'local') {
+            return 'Local Stock Items';
+        } else {
+            return 'Drop-Ship Items';
+        }
+    }
+}
 
-        <div class="t14sf-stat-card t14sf-stat-warning">
-            <div class="t14sf-stat-icon">🚚</div>
-            <div class="t14sf-stat-content">
-                <h3>Products with Turn14 Stock</h3>
-                <p class="t14sf-stat-number"><?php echo esc_html( number_format_i18n( $products_with_turn14_stock ) ); ?></p>
-            </div>
-        </div>
-    </div>
-</div>
-<?php
-} // End conditional logic
-?>
+new T14SF_Shipping_Splitter();
