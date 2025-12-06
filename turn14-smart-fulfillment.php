@@ -53,13 +53,17 @@ class Turn14_Smart_Fulfillment {
     }
 
     private function load_dependencies() {
+        // Core Logic
         require_once T14SF_PLUGIN_DIR . 'includes/price-manager.php';
         require_once T14SF_PLUGIN_DIR . 'includes/stock-manager.php';
         require_once T14SF_PLUGIN_DIR . 'includes/shipping-splitter.php';
         require_once T14SF_PLUGIN_DIR . 'includes/order-tagging.php';
+        
+        // API & Shipping
         require_once T14SF_PLUGIN_DIR . 'includes/turn14-api.php';
         require_once T14SF_PLUGIN_DIR . 'includes/turn14-shipping-method.php';
 
+        // Admin
         if (is_admin()) {
             require_once T14SF_PLUGIN_DIR . 'admin/settings-page.php';
             require_once T14SF_PLUGIN_DIR . 'admin/product-meta-box.php';
@@ -69,6 +73,7 @@ class Turn14_Smart_Fulfillment {
     private function init_hooks() {
         register_activation_hook(T14SF_PLUGIN_FILE, array($this, 'activate'));
         register_deactivation_hook(T14SF_PLUGIN_FILE, array($this, 'deactivate'));
+        
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_assets'));
         add_filter('plugin_action_links_' . T14SF_PLUGIN_BASENAME, array($this, 'add_settings_link'));
@@ -93,11 +98,14 @@ class Turn14_Smart_Fulfillment {
         if (false === get_option('t14sf_activated')) {
             add_option('t14sf_activated', current_time('mysql'));
             add_option('t14sf_version', T14SF_VERSION);
+            
+            // Core Defaults
             add_option('t14sf_price_mode', 'auto');
             add_option('t14sf_stock_threshold', 0);
             add_option('t14sf_turn14_method_id', 'turn14_shipping');
             add_option('t14sf_local_methods', array('flat_rate', 'free_shipping', 'local_pickup'));
-            // Turn14 API defaults
+            
+            // Turn14 API Defaults
             add_option('t14sf_turn14_api_endpoint', '');
             add_option('t14sf_turn14_api_key', '');
             add_option('t14sf_turn14_markup_percent', 0);
@@ -136,6 +144,7 @@ class Turn14_Smart_Fulfillment {
 
     public function enqueue_admin_assets($hook) {
         if (strpos($hook, 't14sf') !== false) {
+            // Note: Ensure admin.css exists in assets/ folder if you want styling
             wp_enqueue_style('t14sf-admin', T14SF_PLUGIN_URL . 'assets/admin.css', array(), T14SF_VERSION);
         }
     }
