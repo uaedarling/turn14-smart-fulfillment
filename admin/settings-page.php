@@ -75,7 +75,12 @@ if (function_exists('WC') && WC()->shipping()) {
 
 <div class="wrap t14sf-dashboard">
     <h1>🚀 Turn14 Smart Fulfillment Dashboard</h1>
-    <p class="description">Intelligent stock, pricing, and shipping management for Turn14 integration.</p>
+    <p class="description">
+        Intelligent stock, pricing, and shipping management for Turn14 integration.
+        <a href="<?php echo esc_url(admin_url('admin.php?page=t14sf-system-check')); ?>" class="button button-secondary" style="margin-left: 10px;">
+            🔍 System Check
+        </a>
+    </p>
 
     <div class="t14sf-stats-grid">
         <div class="t14sf-stat-card">
