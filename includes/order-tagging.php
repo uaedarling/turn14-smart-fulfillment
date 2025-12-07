@@ -34,11 +34,28 @@ class T14SF_Order_Tagging {
 
         $local_stock = get_post_meta( $product_id, '_stock', true );
         $local_stock = ( $local_stock === '' ) ? 0 : intval( $local_stock );
+        
+        $turn14_stock = get_post_meta( $product_id, '_turn14_stock', true );
+        $turn14_stock = ( $turn14_stock === '' ) ? 0 : intval( $turn14_stock );
+        
+        $quantity = $item->get_quantity();
 
-        $source = ( $local_stock > $threshold ) ? 'local' : 'turn14';
+        // Determine fulfillment source based on availability
+        if ( $local_stock > $threshold && $local_stock >= $quantity ) {
+            $source = 'local';
+            $source_label = 'Local Warehouse';
+        } elseif ( $turn14_stock > 0 ) {
+            $source = 'turn14';
+            $source_label = 'Turn14 Drop-Ship';
+        } else {
+            $source = 'backorder';
+            $source_label = 'Backorder';
+        }
 
         $item->add_meta_data( '_fulfillment_source', $source, true );
-        $item->add_meta_data( '_stock_at_purchase', $local_stock, true );
+        $item->add_meta_data( '_fulfillment_label', $source_label, true );
+        $item->add_meta_data( '_local_stock_at_purchase', $local_stock, true );
+        $item->add_meta_data( '_turn14_stock_at_purchase', $turn14_stock, true );
     }
 
     /**
