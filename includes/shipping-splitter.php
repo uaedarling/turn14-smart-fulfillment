@@ -40,7 +40,7 @@ class T14SF_Shipping_Splitter {
             // Split based on which source can fulfill
             if ($local_stock > $threshold && $local_stock >= $quantity) {
                 $local_items[$cart_key] = $cart_item;
-            } elseif ($turn14_stock > 0) {
+            } elseif ($turn14_stock >= $quantity) {
                 $turn14_items[$cart_key] = $cart_item;
             } else {
                 // Default to local if both are 0 (backorder case)

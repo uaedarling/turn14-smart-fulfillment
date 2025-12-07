@@ -44,7 +44,7 @@ class T14SF_Order_Tagging {
         if ( $local_stock > $threshold && $local_stock >= $quantity ) {
             $source = 'local';
             $source_label = 'Local Warehouse';
-        } elseif ( $turn14_stock > 0 ) {
+        } elseif ( $turn14_stock >= $quantity ) {
             $source = 'turn14';
             $source_label = 'Turn14 Drop-Ship';
         } else {
