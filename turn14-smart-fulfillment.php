@@ -97,6 +97,7 @@ class Turn14_Smart_Fulfillment {
     private function load_dependencies() {
         // Core non-admin includes
         $core_files = array(
+            'includes/turn14-api-config.php',
             'includes/price-manager.php',
             'includes/stock-manager.php',
             'includes/shipping-splitter.php',
@@ -135,6 +136,9 @@ class Turn14_Smart_Fulfillment {
         
         // Add settings link on plugins page
         add_filter('plugin_action_links_' . T14SF_PLUGIN_BASENAME, array($this, 'add_settings_link'));
+        
+        // AJAX handlers
+        add_action('wp_ajax_t14sf_test_api_connection', array($this, 'ajax_test_api_connection'));
     }
     
     /**
@@ -224,6 +228,29 @@ class Turn14_Smart_Fulfillment {
     }
     
     /**
+     * AJAX handler for testing API connection
+     */
+    public function ajax_test_api_connection() {
+        // Check user permissions
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => 'Unauthorized'));
+            return;
+        }
+        
+        // Verify nonce
+        check_ajax_referer('t14sf_test_api_connection', 'nonce');
+        
+        // Test the connection
+        $result = Turn14_API_Config::test_connection();
+        
+        if ($result['success']) {
+            wp_send_json_success($result);
+        } else {
+            wp_send_json_error($result);
+        }
+    }
+    
+    /**
      * Get option value
      * 
      * @param string $key Option key
@@ -282,6 +309,12 @@ function t14sf_activate() {
             array('back_link' => true)
         );
     }
+    
+    // Set default API options (only if not already set)
+    add_option('t14sf_api_client_id', 'c387a85cac64c9c4fa6d57a5ef0dfb8ad97a6d26');
+    add_option('t14sf_api_client_secret', '15469b8ad5adf0c1f9d48faa969dc5a6d6e59e9e');
+    add_option('t14sf_api_base_url', 'https://apitest.turn14.com');
+    add_option('t14sf_api_currency_rate', 3.699);
     
     // Set flag to show system check notice
     set_transient('t14sf_activation_redirect', true, 30);

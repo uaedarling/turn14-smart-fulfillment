@@ -7,6 +7,31 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+// Handle API Settings Save
+if (isset($_POST['t14sf_save_api_settings'])) {
+    if (!current_user_can('manage_options')) {
+        wp_die('Unauthorized');
+    }
+    
+    check_admin_referer('t14sf_api_settings_nonce');
+    
+    // Sanitize and save API settings
+    $api_client_id = isset($_POST['api_client_id']) ? sanitize_text_field($_POST['api_client_id']) : '';
+    $api_client_secret = isset($_POST['api_client_secret']) ? sanitize_text_field($_POST['api_client_secret']) : '';
+    $api_base_url = isset($_POST['api_base_url']) ? esc_url_raw($_POST['api_base_url']) : '';
+    $api_currency_rate = isset($_POST['api_currency_rate']) ? floatval($_POST['api_currency_rate']) : 3.699;
+    
+    update_option('t14sf_api_client_id', $api_client_id);
+    update_option('t14sf_api_client_secret', $api_client_secret);
+    update_option('t14sf_api_base_url', $api_base_url);
+    update_option('t14sf_api_currency_rate', $api_currency_rate);
+    
+    // Clear token cache when credentials change
+    Turn14_API_Config::clear_token_cache();
+    
+    echo '<div class="notice notice-success is-dismissible"><p><strong>API settings saved successfully!</strong></p></div>';
+}
+
 // Handle Save
 if (isset($_POST['t14sf_save_settings'])) {
     if (! current_user_can('manage_options')) {
@@ -58,6 +83,12 @@ if (!is_array($local_methods)) {
 $turn14_api_endpoint = Turn14_Smart_Fulfillment::get_option('turn14_api_endpoint', '');
 $turn14_api_key = Turn14_Smart_Fulfillment::get_option('turn14_api_key', '');
 $turn14_markup_percent = Turn14_Smart_Fulfillment::get_option('turn14_markup_percent', 0);
+
+// Get API Configuration Options
+$api_client_id = get_option('t14sf_api_client_id', 'c387a85cac64c9c4fa6d57a5ef0dfb8ad97a6d26');
+$api_client_secret = get_option('t14sf_api_client_secret', '15469b8ad5adf0c1f9d48faa969dc5a6d6e59e9e');
+$api_base_url = get_option('t14sf_api_base_url', 'https://apitest.turn14.com');
+$api_currency_rate = get_option('t14sf_api_currency_rate', 3.699);
 
 // Get Stats
 global $wpdb;
@@ -115,6 +146,55 @@ if (function_exists('WC') && WC()->shipping()) {
             </div>
         </div>
     </div>
+
+    <!-- API Configuration Section -->
+    <form method="post" class="t14sf-settings-form" style="margin-bottom: 30px;">
+        <?php wp_nonce_field('t14sf_api_settings_nonce'); ?>
+        <input type="hidden" name="t14sf_save_api_settings" value="1">
+
+        <div class="t14sf-settings-section">
+            <h2>🔑 API Configuration</h2>
+            <table class="form-table">
+                <tr>
+                    <th scope="row"><label for="api_client_id">Client ID</label></th>
+                    <td>
+                        <input type="text" name="api_client_id" id="api_client_id" value="<?php echo esc_attr($api_client_id); ?>" class="regular-text" required />
+                        <p class="description">Your Turn14 API Client ID.</p>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th scope="row"><label for="api_client_secret">Client Secret</label></th>
+                    <td>
+                        <input type="password" name="api_client_secret" id="api_client_secret" value="<?php echo esc_attr($api_client_secret); ?>" class="regular-text" required />
+                        <p class="description">Your Turn14 API Client Secret.</p>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th scope="row"><label for="api_base_url">API Base URL</label></th>
+                    <td>
+                        <input type="url" name="api_base_url" id="api_base_url" value="<?php echo esc_attr($api_base_url); ?>" class="regular-text" required />
+                        <p class="description">Base URL for Turn14 API (e.g., https://apitest.turn14.com).</p>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th scope="row"><label for="api_currency_rate">Currency Rate</label></th>
+                    <td>
+                        <input type="number" name="api_currency_rate" id="api_currency_rate" value="<?php echo esc_attr($api_currency_rate); ?>" step="0.001" min="0" class="small-text" required />
+                        <p class="description">Exchange rate for currency conversion.</p>
+                    </td>
+                </tr>
+            </table>
+
+            <p class="submit" style="display: flex; gap: 10px; align-items: center;">
+                <button type="submit" name="t14sf_save_api_settings" class="button button-primary">💾 Save API Settings</button>
+                <button type="button" id="t14sf_test_connection" class="button button-secondary">🔌 Test Connection</button>
+                <span id="t14sf_test_result" style="margin-left: 10px;"></span>
+            </p>
+        </div>
+    </form>
 
     <form method="post" class="t14sf-settings-form">
         <?php wp_nonce_field('t14sf_settings_nonce'); ?>
@@ -206,3 +286,45 @@ if (function_exists('WC') && WC()->shipping()) {
         </p>
     </form>
 </div>
+
+<script type="text/javascript">
+jQuery(document).ready(function($) {
+    $('#t14sf_test_connection').on('click', function(e) {
+        e.preventDefault();
+        
+        var $button = $(this);
+        var $result = $('#t14sf_test_result');
+        
+        // Disable button and show loading
+        $button.prop('disabled', true);
+        $result.html('<span style="color: #666;">⏳ Testing connection...</span>');
+        
+        // Make AJAX request
+        $.ajax({
+            url: ajaxurl,
+            type: 'POST',
+            data: {
+                action: 't14sf_test_api_connection',
+                nonce: '<?php echo wp_create_nonce('t14sf_test_api_connection'); ?>'
+            },
+            success: function(response) {
+                if (response.success) {
+                    $result.html('<span style="color: #46b450; font-weight: 600;">✅ ' + response.data.message + '</span>');
+                } else {
+                    $result.html('<span style="color: #dc3232; font-weight: 600;">❌ ' + response.data.message + '</span>');
+                }
+            },
+            error: function() {
+                $result.html('<span style="color: #dc3232; font-weight: 600;">❌ Request failed. Please try again.</span>');
+            },
+            complete: function() {
+                // Re-enable button after 2 seconds
+                setTimeout(function() {
+                    $button.prop('disabled', false);
+                }, 2000);
+            }
+        });
+    });
+});
+</script>
+
