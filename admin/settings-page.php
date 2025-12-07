@@ -264,8 +264,8 @@ $products_with_turn14_stock = (int) $wpdb->get_var("SELECT COUNT(DISTINCT post_i
                             'local_pickup' => 'Local Pickup'
                         );
                         foreach ($available_methods as $method_id => $method_name) {
-                            $checked = in_array($method_id, $local_methods) ? 'checked' : '';
-                            echo '<label style="display: block; margin: 8px 0;"><input type="checkbox" name="local_methods[]" value="' . esc_attr($method_id) . '" ' . $checked . '> ' . esc_html($method_name) . '</label>';
+                            $checked = in_array($method_id, $local_methods) ? ' checked="checked"' : '';
+                            echo '<label style="display: block; margin: 8px 0;"><input type="checkbox" name="local_methods[]" value="' . esc_attr($method_id) . '"' . $checked . '> ' . esc_html($method_name) . '</label>';
                         }
                         ?>
                         <p class="description">Shipping methods available for local warehouse stock</p>

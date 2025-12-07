@@ -29,8 +29,6 @@ class Turn14_API_Client {
             return array();
         }
         
-        $api_url = Turn14_API_Config::get_base_url();
-        
         // Build payload: include items (product id, qty, weight), destination
         $items = array();
         foreach ($package['contents'] as $cart_item) {
