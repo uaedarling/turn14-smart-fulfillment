@@ -32,7 +32,7 @@ if (isset($_POST['t14sf_save_api_settings'])) {
     echo '<div class="notice notice-success is-dismissible"><p><strong>API settings saved successfully!</strong></p></div>';
 }
 
-// Handle Save
+// Handle General Settings Save
 if (isset($_POST['t14sf_save_settings'])) {
     if (! current_user_can('manage_options')) {
         wp_die('Unauthorized');
@@ -43,35 +43,41 @@ if (isset($_POST['t14sf_save_settings'])) {
     // General Settings
     $price_mode = isset($_POST['price_mode']) ? sanitize_text_field($_POST['price_mode']) : 'auto';
     $stock_threshold = isset($_POST['stock_threshold']) ? intval($_POST['stock_threshold']) : 0;
-    
-    // Shipping IDs
-    $turn14_method_id = isset($_POST['turn14_method_id']) ? sanitize_text_field($_POST['turn14_method_id']) : '';
-    
-    // Safely handle array input
-    $raw_methods = isset($_POST['local_methods']) ? $_POST['local_methods'] : array();
-    $local_methods = is_array($raw_methods) ? array_map('sanitize_text_field', $raw_methods) : array();
-
-    // Turn14 API settings
-    $turn14_api_endpoint = isset($_POST['turn14_api_endpoint']) ? esc_url_raw($_POST['turn14_api_endpoint']) : '';
-    $turn14_api_key = isset($_POST['turn14_api_key']) ? sanitize_text_field($_POST['turn14_api_key']) : '';
-    $turn14_markup_percent = isset($_POST['turn14_markup_percent']) ? floatval($_POST['turn14_markup_percent']) : 0;
 
     // Save Options
     Turn14_Smart_Fulfillment::update_option('price_mode', $price_mode);
     Turn14_Smart_Fulfillment::update_option('stock_threshold', $stock_threshold);
-    Turn14_Smart_Fulfillment::update_option('turn14_method_id', $turn14_method_id);
-    Turn14_Smart_Fulfillment::update_option('local_methods', $local_methods);
-
-    Turn14_Smart_Fulfillment::update_option('turn14_api_endpoint', $turn14_api_endpoint);
-    Turn14_Smart_Fulfillment::update_option('turn14_api_key', $turn14_api_key);
-    Turn14_Smart_Fulfillment::update_option('turn14_markup_percent', $turn14_markup_percent);
 
     echo '<div class="notice notice-success is-dismissible"><p><strong>Settings saved successfully!</strong></p></div>';
+}
+
+// Handle Shipping Settings Save
+if (isset($_POST['t14sf_save_shipping_settings'])) {
+    if (!current_user_can('manage_options')) {
+        wp_die('Unauthorized');
+    }
+    
+    check_admin_referer('t14sf_shipping_settings_nonce');
+    
+    $turn14_shipping_markup = isset($_POST['turn14_shipping_markup']) ? floatval($_POST['turn14_shipping_markup']) : 0;
+    $turn14_method_id = isset($_POST['turn14_method_id']) ? sanitize_text_field($_POST['turn14_method_id']) : 'turn14_shipping';
+    
+    $raw_methods = isset($_POST['local_methods']) ? $_POST['local_methods'] : array();
+    $local_methods = is_array($raw_methods) ? array_map('sanitize_text_field', $raw_methods) : array();
+    
+    Turn14_Smart_Fulfillment::update_option('turn14_shipping_markup', $turn14_shipping_markup);
+    Turn14_Smart_Fulfillment::update_option('turn14_method_id', $turn14_method_id);
+    Turn14_Smart_Fulfillment::update_option('local_methods', $local_methods);
+    
+    echo '<div class="notice notice-success is-dismissible"><p><strong>Shipping settings saved successfully!</strong></p></div>';
 }
 
 // Retrieve Options
 $price_mode = Turn14_Smart_Fulfillment::get_option('price_mode', 'auto');
 $stock_threshold = Turn14_Smart_Fulfillment::get_option('stock_threshold', 0);
+
+// Shipping Settings
+$turn14_shipping_markup = Turn14_Smart_Fulfillment::get_option('turn14_shipping_markup', 0);
 $turn14_method_id = Turn14_Smart_Fulfillment::get_option('turn14_method_id', 'turn14_shipping');
 
 // CRITICAL FIX: Ensure $local_methods is strictly an array
@@ -79,10 +85,6 @@ $local_methods = Turn14_Smart_Fulfillment::get_option('local_methods', array('fl
 if (!is_array($local_methods)) {
     $local_methods = (array) $local_methods;
 }
-
-$turn14_api_endpoint = Turn14_Smart_Fulfillment::get_option('turn14_api_endpoint', '');
-$turn14_api_key = Turn14_Smart_Fulfillment::get_option('turn14_api_key', '');
-$turn14_markup_percent = Turn14_Smart_Fulfillment::get_option('turn14_markup_percent', 0);
 
 // Get API Configuration Options
 $api_client_id = get_option('t14sf_api_client_id', 'c387a85cac64c9c4fa6d57a5ef0dfb8ad97a6d26');
@@ -96,12 +98,6 @@ $total_products = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->posts} WHER
 $products_with_local_stock = (int) $wpdb->get_var("SELECT COUNT(DISTINCT post_id) FROM {$wpdb->postmeta} WHERE meta_key = '_stock' AND CAST(meta_value AS UNSIGNED) > 0");
 $products_with_turn14_price = (int) $wpdb->get_var("SELECT COUNT(DISTINCT post_id) FROM {$wpdb->postmeta} WHERE meta_key = '_turn14_price' AND meta_value != ''");
 $products_with_turn14_stock = (int) $wpdb->get_var("SELECT COUNT(DISTINCT post_id) FROM {$wpdb->postmeta} WHERE meta_key = '_turn14_stock' AND CAST(meta_value AS UNSIGNED) > 0");
-
-// Get WC Shipping Methods
-$shipping_methods = array();
-if (function_exists('WC') && WC()->shipping()) {
-    $shipping_methods = WC()->shipping()->get_shipping_methods();
-}
 ?>
 
 <div class="wrap t14sf-dashboard">
@@ -225,64 +221,61 @@ if (function_exists('WC') && WC()->shipping()) {
             </table>
         </div>
 
-        <div class="t14sf-settings-section">
-            <h2>🚚 Shipping & Turn14 API</h2>
+        <p class="submit">
+            <button type="submit" name="t14sf_save_settings" class="button button-primary button-large">💾 Save Settings</button>
+        </p>
+    </form>
 
+    <!-- Shipping Settings Section -->
+    <form method="post" class="t14sf-settings-form">
+        <?php wp_nonce_field('t14sf_shipping_settings_nonce'); ?>
+        <input type="hidden" name="t14sf_save_shipping_settings" value="1">
+
+        <div class="t14sf-settings-section">
+            <h2>🚚 Shipping Settings</h2>
+            <p class="description">Configure how shipping is handled for local and Turn14 orders.</p>
+            
             <table class="form-table">
                 <tr>
-                    <th scope="row"><label for="turn14_api_endpoint">Turn14 API Endpoint</label></th>
+                    <th scope="row"><label for="turn14_shipping_markup">Turn14 Shipping Markup (%)</label></th>
                     <td>
-                        <input type="url" name="turn14_api_endpoint" id="turn14_api_endpoint" value="<?php echo esc_attr($turn14_api_endpoint); ?>" class="regular-text" placeholder="https://api.turn14.com" />
-                        <p class="description">Enter the base URL for your Turn14 shipping API. The plugin posts to <code>/shipping/rates</code> on this endpoint.</p>
+                        <input type="number" id="turn14_shipping_markup" name="turn14_shipping_markup" 
+                               value="<?php echo esc_attr($turn14_shipping_markup); ?>" 
+                               step="0.01" min="0" class="small-text" />
+                        <p class="description">Percentage markup to apply to Turn14 shipping rates (e.g., 10 for 10%)</p>
                     </td>
                 </tr>
-
-                <tr>
-                    <th scope="row"><label for="turn14_api_key">Turn14 API Key</label></th>
-                    <td>
-                        <input type="text" name="turn14_api_key" id="turn14_api_key" value="<?php echo esc_attr($turn14_api_key); ?>" class="regular-text" />
-                        <p class="description">API Key used for authentication (will be sent in the Authorization header).</p>
-                    </td>
-                </tr>
-
-                <tr>
-                    <th scope="row"><label for="turn14_markup_percent">Turn14 Markup (%)</label></th>
-                    <td>
-                        <input type="number" name="turn14_markup_percent" id="turn14_markup_percent" value="<?php echo esc_attr($turn14_markup_percent); ?>" min="0" step="0.1" class="small-text" />
-                        <p class="description">Apply a percentage markup to Turn14-provided rates (e.g., 10 for 10%).</p>
-                    </td>
-                </tr>
-
                 <tr>
                     <th scope="row"><label for="turn14_method_id">Turn14 Shipping Method ID</label></th>
                     <td>
-                        <input type="text" name="turn14_method_id" id="turn14_method_id" value="<?php echo esc_attr($turn14_method_id); ?>" class="regular-text" placeholder="turn14_shipping" />
-                        <p class="description">Method ID used to identify Turn14 shipping rates (default: <code>turn14_shipping</code>).</p>
+                        <input type="text" id="turn14_method_id" name="turn14_method_id" 
+                               value="<?php echo esc_attr($turn14_method_id); ?>" 
+                               class="regular-text" />
+                        <p class="description">WooCommerce shipping method ID for Turn14 rates (default: turn14_shipping)</p>
                     </td>
                 </tr>
-
                 <tr>
-                    <th scope="row">Local Warehouse Shipping Methods</th>
+                    <th scope="row"><label>Local Shipping Methods</label></th>
                     <td>
-                        <?php if (!empty($shipping_methods)): ?>
-                            <?php foreach ($shipping_methods as $method_id => $method): ?>
-                                <?php if ($method_id === $turn14_method_id) continue; ?>
-                                <label style="display: block; margin: 8px 0;">
-                                    <input type="checkbox" name="local_methods[]" value="<?php echo esc_attr($method_id); ?>" <?php checked(in_array($method_id, $local_methods)); ?> />
-                                    <strong><?php echo esc_html($method->get_method_title()); ?></strong>
-                                    <code style="color: #666;">(<?php echo esc_html($method_id); ?>)</code>
-                                </label>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <p class="description">No shipping methods found. Configure them in WooCommerce → Settings → Shipping.</p>
-                        <?php endif; ?>
+                        <?php
+                        $available_methods = array(
+                            'flat_rate' => 'Flat Rate',
+                            'free_shipping' => 'Free Shipping',
+                            'local_pickup' => 'Local Pickup'
+                        );
+                        foreach ($available_methods as $method_id => $method_name) {
+                            $checked = in_array($method_id, $local_methods) ? ' checked="checked"' : '';
+                            echo '<label style="display: block; margin: 8px 0;"><input type="checkbox" name="local_methods[]" value="' . esc_attr($method_id) . '"' . $checked . '> ' . esc_html($method_name) . '</label>';
+                        }
+                        ?>
+                        <p class="description">Shipping methods available for local warehouse stock</p>
                     </td>
                 </tr>
             </table>
         </div>
 
         <p class="submit">
-            <button type="submit" name="t14sf_save_settings" class="button button-primary button-large">💾 Save Settings</button>
+            <button type="submit" name="t14sf_save_shipping_settings" class="button button-primary button-large">💾 Save Shipping Settings</button>
         </p>
     </form>
 </div>

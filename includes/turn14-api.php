@@ -9,22 +9,26 @@ if (!defined('ABSPATH')) {
 
 class Turn14_API_Client {
 
-    private $endpoint;
-    private $api_key;
     private $timeout = 20;
 
     public function __construct() {
-        $this->endpoint = Turn14_Smart_Fulfillment::get_option('turn14_api_endpoint', '');
-        $this->api_key = Turn14_Smart_Fulfillment::get_option('turn14_api_key', '');
         $timeout = Turn14_Smart_Fulfillment::get_option('turn14_api_timeout', 20);
         $this->timeout = $timeout ? intval($timeout) : 20;
     }
 
     /**
      * Get shipping rates from Turn14 API for a package
+     * Uses the Turn14 Quote endpoint with OAuth authentication
      * Returns an array of rates: array(array('carrier'=>'UPS','service'=>'Ground','price'=>12.34), ...)
      */
     public function get_rates_for_package($package) {
+        // Get OAuth token from centralized config
+        $token = Turn14_API_Config::get_token();
+        if (!$token) {
+            error_log('Turn14 API Client: Failed to get OAuth token for shipping rates');
+            return array();
+        }
+        
         // Build payload: include items (product id, qty, weight), destination
         $items = array();
         foreach ($package['contents'] as $cart_item) {
@@ -52,7 +56,8 @@ class Turn14_API_Client {
             'currency' => get_woocommerce_currency(),
         );
 
-        $response = $this->post('/shipping/rates', $payload);
+        // Use the Quote endpoint for shipping rates
+        $response = $this->post('/v1/quote', $payload, $token);
 
         if (!is_array($response) || empty($response['rates'])) {
             return array();
@@ -78,12 +83,14 @@ class Turn14_API_Client {
     /**
      * POST helper
      */
-    private function post($path, $data) {
-        if (empty($this->endpoint)) {
+    private function post($path, $data, $token = null) {
+        $base_url = Turn14_API_Config::get_base_url();
+        if (empty($base_url)) {
+            error_log('Turn14 API Client: Base URL is not configured');
             return array();
         }
 
-        $url = rtrim($this->endpoint, '/') . $path;
+        $url = rtrim($base_url, '/') . $path;
 
         $args = array(
             'method'    => 'POST',
@@ -94,8 +101,9 @@ class Turn14_API_Client {
             'body'      => wp_json_encode($data),
         );
 
-        if (!empty($this->api_key)) {
-            $args['headers']['Authorization'] = 'Bearer ' . $this->api_key;
+        // Use OAuth token for authentication
+        if (!empty($token)) {
+            $args['headers']['Authorization'] = 'Bearer ' . $token;
         }
 
         $resp = wp_remote_post($url, $args);

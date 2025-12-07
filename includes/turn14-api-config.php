@@ -173,10 +173,9 @@ class Turn14_API_Config {
         }
         
         // Success - connection is working
-        $brand_count = is_array($data) ? count($data) : 0;
         return array(
             'success' => true,
-            'message' => 'Connection successful! Found ' . $brand_count . ' brands.',
+            'message' => 'API connection successful! Authentication verified and API is responding correctly.',
         );
     }
     
