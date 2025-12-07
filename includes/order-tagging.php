@@ -72,8 +72,17 @@ class T14SF_Order_Tagging {
             return;
         }
 
-        $label = ( $source === 'local' ) ? '🏭 Local Warehouse' : '📦 Turn14 Drop-Ship';
-        $color = ( $source === 'local' ) ? '#10b981' : '#667eea';
+        // Determine label and color based on source
+        if ( $source === 'local' ) {
+            $label = '🏭 Local Warehouse';
+            $color = '#10b981';
+        } elseif ( $source === 'turn14' ) {
+            $label = '📦 Turn14 Drop-Ship';
+            $color = '#667eea';
+        } else {
+            $label = '⏳ Backorder';
+            $color = '#f59e0b';
+        }
 
         echo '<div style="margin-top:8px;padding:6px 8px;background:' . esc_attr( $color ) . ';color:#fff;border-radius:4px;font-size:12px;font-weight:600;">';
         echo esc_html( $label );
