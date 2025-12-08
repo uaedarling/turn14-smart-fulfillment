@@ -57,6 +57,18 @@ class T14SF_Shipping_Debug {
             </div>
             
             <div class="t14sf-settings-section">
+                <h2>Address Zone Matching</h2>
+                <p class="description">Test if customer addresses match your configured zones.</p>
+                <?php 
+                try {
+                    self::test_address_zone_matching(); 
+                } catch (Exception $e) {
+                    echo '<div class="notice notice-error"><p>Error: ' . esc_html($e->getMessage()) . '</p></div>';
+                }
+                ?>
+            </div>
+            
+            <div class="t14sf-settings-section">
                 <h2>Test Package Creation</h2>
                 <?php 
                 try {
@@ -255,6 +267,57 @@ class T14SF_Shipping_Debug {
             echo '<div class="notice notice-error inline"><p><strong>⚠️ Critical error loading shipping zones:</strong> ' . esc_html($e->getMessage()) . '</p>';
             echo '<p><em>File: ' . esc_html($e->getFile()) . ' Line: ' . esc_html($e->getLine()) . '</em></p></div>';
             error_log('T14SF: Critical error in display_shipping_zones - ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+        }
+    }
+    
+    private static function test_address_zone_matching() {
+        echo '<h3>Address Zone Matching Test</h3>';
+        
+        if (!class_exists('WC_Shipping_Zones')) {
+            echo '<p>WooCommerce Shipping Zones not available.</p>';
+            return;
+        }
+        
+        // Get customer address if available
+        $test_address = array(
+            'country' => 'AE',
+            'state' => '',
+            'postcode' => 'AUH358223',
+            'city' => 'Abu Dhabi',
+        );
+        
+        echo '<p><strong>Testing address:</strong> Abu Dhabi, AUH358223, AE</p>';
+        
+        try {
+            $matched_zone = WC_Shipping_Zones::get_zone_matching_package($test_address);
+            
+            if ($matched_zone) {
+                echo '<div style="background:#d4edda; border:1px solid #c3e6cb; padding:10px; border-radius:4px;">';
+                echo '✅ <strong>Address matches zone:</strong> ' . esc_html($matched_zone->get_zone_name());
+                echo ' (Zone ID: ' . $matched_zone->get_id() . ')';
+                
+                // Show methods in this zone
+                $methods = $matched_zone->get_shipping_methods(true); // true = enabled only
+                if (!empty($methods)) {
+                    echo '<br><strong>Available methods in this zone:</strong><ul style="margin:5px 0;">';
+                    foreach ($methods as $method) {
+                        echo '<li>' . esc_html($method->id . ':' . $method->instance_id) . ' - ' . esc_html($method->title) . '</li>';
+                    }
+                    echo '</ul>';
+                } else {
+                    echo '<br><span style="color:red;">⚠️ No shipping methods enabled in this zone!</span>';
+                }
+                
+                echo '</div>';
+            } else {
+                echo '<div style="background:#f8d7da; border:1px solid #f5c6cb; padding:10px; border-radius:4px;">';
+                echo '❌ <strong>Address does not match any zone!</strong><br>';
+                echo 'This is why "No shipping options" appears. The address needs to match a zone.';
+                echo '</div>';
+            }
+            
+        } catch (Exception $e) {
+            echo '<div class="notice notice-error"><p>Error testing zone match: ' . esc_html($e->getMessage()) . '</p></div>';
         }
     }
     
