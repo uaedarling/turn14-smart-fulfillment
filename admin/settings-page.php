@@ -7,6 +7,80 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+/**
+ * Get all available shipping methods from WooCommerce zones
+ * Returns array of methods with their details
+ */
+function t14sf_get_available_shipping_methods() {
+    $available = array();
+    
+    if (!class_exists('WC_Shipping_Zones')) {
+        return $available;
+    }
+    
+    try {
+        // Get all zones
+        $zones = WC_Shipping_Zones::get_zones();
+        
+        foreach ($zones as $zone) {
+            $zone_name = isset($zone['zone_name']) ? $zone['zone_name'] : 'Unknown Zone';
+            
+            if (isset($zone['shipping_methods']) && is_array($zone['shipping_methods'])) {
+                foreach ($zone['shipping_methods'] as $method) {
+                    if (!is_object($method) || !isset($method->enabled) || $method->enabled !== 'yes') {
+                        continue;
+                    }
+                    
+                    $method_id = isset($method->id) ? $method->id : 'unknown';
+                    $instance_id = isset($method->instance_id) ? $method->instance_id : null;
+                    $title = isset($method->title) ? $method->title : 'Unknown Method';
+                    
+                    // Create the rate ID as WooCommerce does (method_id:instance_id)
+                    $rate_id = $instance_id ? $method_id . ':' . $instance_id : $method_id;
+                    
+                    $available[$rate_id] = array(
+                        'id' => $rate_id,
+                        'method_id' => $method_id,
+                        'instance_id' => $instance_id,
+                        'title' => $title,
+                        'zone' => $zone_name,
+                    );
+                }
+            }
+        }
+        
+        // Get default zone (zone 0)
+        if (class_exists('WC_Shipping_Zone')) {
+            $default_zone = new WC_Shipping_Zone(0);
+            $methods = $default_zone->get_shipping_methods();
+            
+            foreach ($methods as $method) {
+                if (!is_object($method) || !isset($method->enabled) || $method->enabled !== 'yes') {
+                    continue;
+                }
+                
+                $method_id = isset($method->id) ? $method->id : 'unknown';
+                $instance_id = isset($method->instance_id) ? $method->instance_id : null;
+                $title = isset($method->title) ? $method->title : 'Unknown Method';
+                
+                $rate_id = $instance_id ? $method_id . ':' . $instance_id : $method_id;
+                
+                $available[$rate_id] = array(
+                    'id' => $rate_id,
+                    'method_id' => $method_id,
+                    'instance_id' => $instance_id,
+                    'title' => $title,
+                    'zone' => 'Default Zone (Everywhere else)',
+                );
+            }
+        }
+    } catch (Exception $e) {
+        error_log('T14SF: Error getting available shipping methods - ' . $e->getMessage());
+    }
+    
+    return $available;
+}
+
 // Handle API Settings Save
 if (isset($_POST['t14sf_save_api_settings'])) {
     if (!current_user_can('manage_options')) {
@@ -262,17 +336,58 @@ $products_with_turn14_stock = (int) $wpdb->get_var("SELECT COUNT(DISTINCT post_i
                     <th scope="row"><label>Local Shipping Methods</label></th>
                     <td>
                         <?php
-                        $available_methods = array(
-                            'flat_rate' => 'Flat Rate',
-                            'free_shipping' => 'Free Shipping',
-                            'local_pickup' => 'Local Pickup'
-                        );
-                        foreach ($available_methods as $method_id => $method_name) {
-                            $checked = in_array($method_id, $local_methods) ? ' checked="checked"' : '';
-                            echo '<label style="display: block; margin: 8px 0;"><input type="checkbox" name="local_methods[]" value="' . esc_attr($method_id) . '"' . $checked . '> ' . esc_html($method_name) . '</label>';
+                        // Get available methods from WooCommerce zones
+                        $available_methods = t14sf_get_available_shipping_methods();
+                        
+                        if (empty($available_methods)) {
+                            echo '<p style="color: #dc3232;">⚠️ No enabled shipping methods found in your WooCommerce zones.</p>';
+                            echo '<p class="description">Please go to <a href="' . esc_url(admin_url('admin.php?page=wc-settings&tab=shipping')) . '" target="_blank">WooCommerce → Settings → Shipping</a> to configure shipping zones and methods.</p>';
+                        } else {
+                            echo '<div style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; background: #fff;">';
+                            
+                            // Group by base method ID for better organization
+                            $grouped = array();
+                            foreach ($available_methods as $rate_id => $method) {
+                                // Skip Turn14 shipping method
+                                if (strpos($method['method_id'], 'turn14') !== false) {
+                                    continue;
+                                }
+                                
+                                $base_id = $method['method_id'];
+                                if (!isset($grouped[$base_id])) {
+                                    $grouped[$base_id] = array();
+                                }
+                                $grouped[$base_id][] = $method;
+                            }
+                            
+                            foreach ($grouped as $base_id => $methods) {
+                                // Get readable name for method type
+                                $method_type_name = ucwords(str_replace('_', ' ', $base_id));
+                                
+                                echo '<div style="margin-bottom: 15px;">';
+                                echo '<strong style="display: block; margin-bottom: 5px; color: #2271b1;">' . esc_html($method_type_name) . '</strong>';
+                                
+                                foreach ($methods as $method) {
+                                    $checked = in_array($method['id'], $local_methods) ? ' checked="checked"' : '';
+                                    
+                                    echo '<label style="display: block; margin: 5px 0 5px 15px; padding: 5px; background: #f9f9f9;">';
+                                    echo '<input type="checkbox" name="local_methods[]" value="' . esc_attr($method['id']) . '"' . $checked . '> ';
+                                    echo '<strong>' . esc_html($method['title']) . '</strong>';
+                                    echo ' <code style="font-size: 11px; background: #fff; padding: 2px 6px; border: 1px solid #ddd;">' . esc_html($method['id']) . '</code>';
+                                    echo '<br><span style="margin-left: 20px; font-size: 12px; color: #666;">Zone: ' . esc_html($method['zone']) . '</span>';
+                                    echo '</label>';
+                                }
+                                
+                                echo '</div>';
+                            }
+                            
+                            echo '</div>';
                         }
                         ?>
-                        <p class="description">Shipping methods available for local warehouse stock</p>
+                        <p class="description" style="margin-top: 10px;">
+                            💡 Select shipping methods that should be available for items fulfilled from your local warehouse. 
+                            Turn14 shipping methods are automatically excluded from this list.
+                        </p>
                     </td>
                 </tr>
                 <tr>

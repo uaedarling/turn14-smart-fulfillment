@@ -275,9 +275,25 @@ class T14SF_Shipping_Debug {
     private static function test_package_creation() {
         echo '<p>Add items to cart and view this page to see package splitting in action.</p>';
         
-        // Check if WooCommerce and cart are available
-        if (!function_exists('WC') || !WC() || !isset(WC()->cart)) {
-            echo '<div class="notice notice-warning inline"><p>WooCommerce cart is not available. Make sure WooCommerce is active.</p></div>';
+        // Check if WooCommerce and cart exist
+        if (!function_exists('WC') || !WC()->cart) {
+            echo '<div class="notice notice-warning"><p>WooCommerce cart is not available. Make sure WooCommerce is active.</p></div>';
+            
+            // Alternative: Try to initialize cart
+            if (function_exists('WC')) {
+                try {
+                    WC()->frontend_includes();
+                    if (WC()->cart && is_null(WC()->cart)) {
+                        WC()->cart = new WC_Cart();
+                    }
+                } catch (Exception $e) {
+                    // Cart initialization failed
+                }
+            }
+        }
+        
+        // Check again after initialization attempt
+        if (!function_exists('WC') || !WC()->cart) {
             return;
         }
         
@@ -287,26 +303,26 @@ class T14SF_Shipping_Debug {
         }
         
         echo '<h3>Current Cart Packages:</h3>';
+        
+        // Get packages
         $packages = WC()->cart->get_shipping_packages();
         
         if (empty($packages)) {
-            echo '<div class="notice notice-warning inline"><p>No packages found. Cart may not have shipping enabled.</p></div>';
+            echo '<p><em>No packages generated. Cart items: ' . WC()->cart->get_cart_contents_count() . '</em></p>';
         } else {
             foreach ($packages as $i => $package) {
-                echo '<div style="border:1px solid #ccc; padding:15px; margin:10px 0; background: #f9f9f9; border-radius: 4px;">';
-                echo '<h4 style="margin-top: 0;">Package ' . ($i + 1) . '</h4>';
-                echo '<table class="widefat" style="background: white;">';
-                echo '<tr><td style="width: 150px;"><strong>Type:</strong></td><td>' . (isset($package['t14sf_type']) ? '<code>' . esc_html($package['t14sf_type']) . '</code>' : '<em style="color: #999;">not set</em>') . '</td></tr>';
-                echo '<tr><td><strong>Label:</strong></td><td>' . (isset($package['t14sf_label']) ? esc_html($package['t14sf_label']) : '<em style="color: #999;">not set</em>') . '</td></tr>';
-                echo '<tr><td><strong>Items:</strong></td><td>' . count($package['contents']) . '</td></tr>';
-                echo '<tr><td><strong>Contents Cost:</strong></td><td>' . wc_price($package['contents_cost']) . '</td></tr>';
-                echo '</table>';
+                echo '<div style="border:1px solid #ccc; padding:10px; margin:10px 0; background:#f9f9f9;">';
+                echo '<h4>Package ' . ($i + 1) . '</h4>';
+                echo '<p><strong>Type:</strong> ' . (isset($package['t14sf_type']) ? esc_html($package['t14sf_type']) : '<span style="color:red;">not set</span>') . '</p>';
+                echo '<p><strong>Label:</strong> ' . (isset($package['t14sf_label']) ? esc_html($package['t14sf_label']) : '<span style="color:red;">not set</span>') . '</p>';
+                echo '<p><strong>Items:</strong> ' . count($package['contents']) . '</p>';
                 
+                // Show items
                 if (!empty($package['contents'])) {
-                    echo '<h5 style="margin-bottom: 8px;">Items in Package:</h5>';
-                    echo '<ul style="margin: 0;">';
+                    echo '<ul style="font-size:12px;">';
                     foreach ($package['contents'] as $item) {
-                        echo '<li>' . esc_html($item['data']->get_name()) . ' (Qty: ' . $item['quantity'] . ')</li>';
+                        $product = $item['data'];
+                        echo '<li>' . esc_html($product->get_name()) . ' (Qty: ' . $item['quantity'] . ')</li>';
                     }
                     echo '</ul>';
                 }
