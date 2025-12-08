@@ -175,6 +175,16 @@ class Turn14_Smart_Fulfillment {
             't14sf-system-check',
             array($this, 'render_system_check_page')
         );
+        
+        // Shipping Debug submenu
+        add_submenu_page(
+            't14sf-dashboard',
+            __('Shipping Debug', 'turn14-smart-fulfillment'),
+            __('Shipping Debug', 'turn14-smart-fulfillment'),
+            'manage_options',
+            't14sf-shipping-debug',
+            array($this, 'render_shipping_debug_page')
+        );
     }
     
     /**
@@ -194,6 +204,17 @@ class Turn14_Smart_Fulfillment {
         $system_check_file = T14SF_PLUGIN_DIR . 'admin/system-check.php';
         if (file_exists($system_check_file)) {
             include $system_check_file;
+        }
+    }
+    
+    /**
+     * Render shipping debug page
+     */
+    public function render_shipping_debug_page() {
+        $shipping_debug_file = T14SF_PLUGIN_DIR . 'admin/shipping-debug.php';
+        if (file_exists($shipping_debug_file)) {
+            require_once $shipping_debug_file;
+            T14SF_Shipping_Debug::render();
         }
     }
     

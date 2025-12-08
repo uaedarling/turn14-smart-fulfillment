@@ -65,9 +65,12 @@ if (isset($_POST['t14sf_save_shipping_settings'])) {
     $raw_methods = isset($_POST['local_methods']) ? $_POST['local_methods'] : array();
     $local_methods = is_array($raw_methods) ? array_map('sanitize_text_field', $raw_methods) : array();
     
+    $enable_debug = isset($_POST['enable_debug']) ? true : false;
+    
     Turn14_Smart_Fulfillment::update_option('turn14_shipping_markup', $turn14_shipping_markup);
     Turn14_Smart_Fulfillment::update_option('turn14_method_id', $turn14_method_id);
     Turn14_Smart_Fulfillment::update_option('local_methods', $local_methods);
+    Turn14_Smart_Fulfillment::update_option('enable_debug', $enable_debug);
     
     echo '<div class="notice notice-success is-dismissible"><p><strong>Shipping settings saved successfully!</strong></p></div>';
 }
@@ -79,6 +82,7 @@ $stock_threshold = Turn14_Smart_Fulfillment::get_option('stock_threshold', 0);
 // Shipping Settings
 $turn14_shipping_markup = Turn14_Smart_Fulfillment::get_option('turn14_shipping_markup', 0);
 $turn14_method_id = Turn14_Smart_Fulfillment::get_option('turn14_method_id', 'turn14_shipping');
+$enable_debug = Turn14_Smart_Fulfillment::get_option('enable_debug', false);
 
 // CRITICAL FIX: Ensure $local_methods is strictly an array
 $local_methods = Turn14_Smart_Fulfillment::get_option('local_methods', array('flat_rate', 'free_shipping', 'local_pickup'));
@@ -269,6 +273,14 @@ $products_with_turn14_stock = (int) $wpdb->get_var("SELECT COUNT(DISTINCT post_i
                         }
                         ?>
                         <p class="description">Shipping methods available for local warehouse stock</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="enable_debug">Enable Debug Mode</label></th>
+                    <td>
+                        <input type="checkbox" id="enable_debug" name="enable_debug" value="1" 
+                               <?php checked($enable_debug, true); ?> />
+                        <p class="description">Enable detailed logging for troubleshooting shipping issues. View logs at <a href="<?php echo esc_url(admin_url('admin.php?page=t14sf-shipping-debug')); ?>">Shipping Debug</a> page.</p>
                     </td>
                 </tr>
             </table>
