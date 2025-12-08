@@ -87,73 +87,72 @@ class T14SF_Shipping_Splitter {
     }
     
     public function filter_rates_by_package($rates, $package) {
+        // Get package type (default to 'local' for backward compatibility)
         $package_type = isset($package['t14sf_type']) ? $package['t14sf_type'] : 'local';
         
-        // Log what rates are available
+        // Log before filtering
         if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('T14SF: Available rates for package type: ' . $package_type);
-            error_log('T14SF: Rate IDs: ' . implode(', ', array_keys($rates)));
+            error_log('Turn14 SF: Before filter - Package type: ' . $package_type . ', Rate count: ' . count($rates));
+            error_log('Turn14 SF: Rate IDs: ' . implode(', ', array_keys($rates)));
         }
         
-        $turn14_method_id = Turn14_Smart_Fulfillment::get_option('turn14_method_id', 'turn14_shipping');
-        $local_methods = Turn14_Smart_Fulfillment::get_option('local_methods', array('flat_rate', 'free_shipping', 'local_pickup'));
-        
-        // Safety check to ensure array
-        if (!is_array($local_methods)) {
-            $local_methods = (array) $local_methods;
-        }
-        
-        $filtered = array();
-        
-        foreach ($rates as $rate_id => $rate) {
-            $method_id = method_exists($rate, 'get_method_id') ? $rate->get_method_id() : (isset($rate->method_id) ? $rate->method_id : '');
-
-            if ($package_type === 'local') {
-                // For local packages, only include rates from configured local methods
-                // Use helper to check both simple and instance-based IDs
-                if ($this->is_local_shipping_method($rate_id)) {
-                    $filtered[$rate_id] = $rate;
-                } else {
+        // For LOCAL packages, KEEP local methods and REMOVE Turn14 shipping
+        if ($package_type === 'local') {
+            foreach ($rates as $rate_id => $rate) {
+                // Remove ONLY Turn14 shipping from local packages
+                if ($this->is_turn14_method($rate_id)) {
                     if (defined('WP_DEBUG') && WP_DEBUG) {
-                        error_log('T14SF: Excluded non-local method from local package: ' . $rate_id);
+                        error_log('Turn14 SF: Removing Turn14 method from local package: ' . $rate_id);
                     }
+                    unset($rates[$rate_id]);
                 }
-            } else {
-                // For Turn14 packages, remove local methods
-                $is_local_method = $this->is_local_shipping_method($rate_id);
-                
-                if (!$is_local_method && (strpos($rate_id, $turn14_method_id) === 0 || $method_id === $turn14_method_id)) {
-                    // Include Turn14 shipping method
-                    $filtered[$rate_id] = $rate;
-                } elseif ($is_local_method) {
-                    if (defined('WP_DEBUG') && WP_DEBUG) {
-                        error_log('T14SF: Removed local method from Turn14 package: ' . $rate_id);
-                    }
-                }
+                // Keep all other methods (local methods stay!)
             }
         }
         
-        // Log final available rates
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('T14SF: Final rates count: ' . count($filtered));
-            if (empty($filtered)) {
-                error_log('T14SF: WARNING - No shipping rates available after filtering!');
+        // For TURN14 packages, KEEP Turn14 shipping and REMOVE local methods
+        elseif ($package_type === 'turn14') {
+            foreach ($rates as $rate_id => $rate) {
+                // Remove local methods from Turn14 packages
+                if ($this->is_local_method($rate_id)) {
+                    if (defined('WP_DEBUG') && WP_DEBUG) {
+                        error_log('Turn14 SF: Removing local method from Turn14 package: ' . $rate_id);
+                    }
+                    unset($rates[$rate_id]);
+                }
+                // Keep Turn14 methods
             }
         }
         
-        // Return filtered rates (may be empty if no matching methods found)
-        return $filtered;
+        // Log after filtering
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('Turn14 SF: After filter - Rate count: ' . count($rates));
+            if (empty($rates)) {
+                error_log('Turn14 SF: WARNING - No rates left after filtering!');
+            }
+        }
+        
+        return $rates;
     }
     
     /**
-     * Check if a rate ID matches configured local shipping methods
-     * Handles both simple IDs and instance IDs
+     * Check if rate is a Turn14 shipping method
      */
-    private function is_local_shipping_method($rate_id) {
+    private function is_turn14_method($rate_id) {
+        $turn14_method_id = Turn14_Smart_Fulfillment::get_option('turn14_method_id', 'turn14_shipping');
+        
+        // Match turn14_shipping or turn14_shipping:2
+        return ($rate_id === $turn14_method_id || strpos($rate_id, $turn14_method_id . ':') === 0);
+    }
+    
+    /**
+     * Check if rate is a local shipping method
+     */
+    private function is_local_method($rate_id) {
         $local_methods = Turn14_Smart_Fulfillment::get_option('local_methods', array('flat_rate', 'free_shipping', 'local_pickup'));
         
         foreach ($local_methods as $method) {
-            // Match exact ID or instance-based ID (e.g., flat_rate:1, flat_rate:2)
+            // Match exact ID or instance ID (e.g., free_shipping:3)
             if ($rate_id === $method || strpos($rate_id, $method . ':') === 0) {
                 return true;
             }
