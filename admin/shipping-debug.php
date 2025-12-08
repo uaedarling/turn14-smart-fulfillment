@@ -231,7 +231,9 @@ class T14SF_Shipping_Debug {
                     $has_default_methods = !empty($methods);
                 }
             } catch (Exception $e) {
-                // Silently fail for this check
+                // Silently fail for this non-critical check
+                // We're just determining if the "no zones" message should display
+                error_log('T14SF: Error checking default zone for display decision - ' . $e->getMessage());
             }
             
             if (!$has_zones && !$has_default_methods) {
@@ -347,7 +349,7 @@ class T14SF_Shipping_Debug {
             
             // Read file more efficiently for large files
             $t14sf_lines = array();
-            $handle = @fopen($log_file, 'r');
+            $handle = fopen($log_file, 'r');
             
             if ($handle === false) {
                 throw new Exception('Cannot open debug.log file');
