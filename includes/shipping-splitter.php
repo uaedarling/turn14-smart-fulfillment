@@ -32,18 +32,29 @@ class T14SF_Shipping_Splitter {
             $local_stock = get_post_meta($product_id, '_stock', true);
             $local_stock = ($local_stock === '') ? 0 : intval($local_stock);
             
-            if ($local_stock > $threshold) {
+            $turn14_stock = get_post_meta($product_id, '_turn14_stock', true);
+            $turn14_stock = ($turn14_stock === '') ? 0 : intval($turn14_stock);
+            
+            $quantity = $cart_item['quantity'];
+            
+            // Split based on which source can fulfill
+            if ($local_stock > $threshold && $local_stock >= $quantity) {
                 $local_items[$cart_key] = $cart_item;
-            } else {
+            } elseif ($turn14_stock >= $quantity) {
                 $turn14_items[$cart_key] = $cart_item;
+            } else {
+                // Default to local if both are 0 (backorder case)
+                $local_items[$cart_key] = $cart_item;
             }
         }
         
         if (empty($local_items) || empty($turn14_items)) {
             if (! empty($turn14_items)) {
                 $packages[0]['t14sf_type'] = 'turn14';
+                $packages[0]['t14sf_label'] = 'Turn14 Drop-Ship';
             } else {
                 $packages[0]['t14sf_type'] = 'local';
+                $packages[0]['t14sf_label'] = 'Local Warehouse Shipping';
             }
             return $packages;
         }
@@ -59,6 +70,7 @@ class T14SF_Shipping_Splitter {
             'user' => isset($base['user']) ? $base['user'] : array(),
             'destination' => isset($base['destination']) ? $base['destination'] : array(),
             't14sf_type' => 'local',
+            't14sf_label' => 'Local Warehouse Shipping',
         );
         
         $new_packages[] = array(
@@ -68,6 +80,7 @@ class T14SF_Shipping_Splitter {
             'user' => isset($base['user']) ? $base['user'] : array(),
             'destination' => isset($base['destination']) ? $base['destination'] : array(),
             't14sf_type' => 'turn14',
+            't14sf_label' => 'Turn14 Drop-Ship',
         );
         
         return $new_packages;
@@ -104,12 +117,16 @@ class T14SF_Shipping_Splitter {
     }
     
     public function custom_package_name($name, $i, $package) {
+        if (isset($package['t14sf_label'])) {
+            return $package['t14sf_label'];
+        }
+        
         $type = isset($package['t14sf_type']) ? $package['t14sf_type'] : 'local';
         
         if ($type === 'local') {
-            return 'Local Stock Items';
+            return 'Local Warehouse Shipping';
         } else {
-            return 'Drop-Ship Items';
+            return 'Turn14 Drop-Ship';
         }
     }
 }

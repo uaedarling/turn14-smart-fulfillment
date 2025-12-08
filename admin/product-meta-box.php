@@ -86,6 +86,13 @@ class T14SF_Product_Meta_Box {
                         </span>
                     </span>
                 </div>
+                
+                <div class="t14sf-meta-row">
+                    <span class="t14sf-meta-label"><?php echo esc_html__('Total Available:', 'turn14-smart-fulfillment'); ?></span>
+                    <span class="t14sf-meta-value">
+                        <strong style="color: #10b981;"><?php echo esc_html( $local_stock + $turn14_stock ); ?></strong>
+                    </span>
+                </div>
             </div>
             
             <div class="t14sf-meta-section">
