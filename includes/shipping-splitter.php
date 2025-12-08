@@ -14,6 +14,9 @@ class T14SF_Shipping_Splitter {
         add_filter('woocommerce_cart_shipping_packages', array($this, 'split_packages'), 10, 1);
         add_filter('woocommerce_package_rates', array($this, 'filter_rates_by_package'), 10, 2);
         add_filter('woocommerce_shipping_package_name', array($this, 'custom_package_name'), 10, 3);
+        
+        // Add zone matching debug
+        add_action('woocommerce_shipping_zone_before_methods', array($this, 'log_zone_match'), 10, 1);
     }
     
     public function split_packages($packages) {
@@ -86,14 +89,36 @@ class T14SF_Shipping_Splitter {
         return $new_packages;
     }
     
+    /**
+     * Log which zone is being used for shipping calculation
+     */
+    public function log_zone_match($zone) {
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            if (is_object($zone) && method_exists($zone, 'get_zone_name')) {
+                error_log('Turn14 SF: Zone matched: ' . $zone->get_zone_name() . ' (ID: ' . $zone->get_id() . ')');
+            }
+        }
+    }
+    
     public function filter_rates_by_package($rates, $package) {
         // Get package type (default to 'local' for backward compatibility)
         $package_type = isset($package['t14sf_type']) ? $package['t14sf_type'] : 'local';
         
-        // Log before filtering
+        // Log package destination details
         if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('Turn14 SF: Before filter - Package type: ' . $package_type . ', Rate count: ' . count($rates));
+            error_log('Turn14 SF: === SHIPPING FILTER START ===');
+            error_log('Turn14 SF: Package type: ' . $package_type);
+            error_log('Turn14 SF: Rate count before filter: ' . count($rates));
             error_log('Turn14 SF: Rate IDs: ' . implode(', ', array_keys($rates)));
+            
+            // Log destination
+            if (isset($package['destination'])) {
+                $dest = $package['destination'];
+                error_log('Turn14 SF: Destination - Country: ' . ($dest['country'] ?? 'none') . 
+                         ', State: ' . ($dest['state'] ?? 'none') . 
+                         ', Postcode: ' . ($dest['postcode'] ?? 'none') . 
+                         ', City: ' . ($dest['city'] ?? 'none'));
+            }
         }
         
         // For LOCAL packages, KEEP local methods and REMOVE Turn14 shipping
@@ -106,7 +131,6 @@ class T14SF_Shipping_Splitter {
                     }
                     unset($rates[$rate_id]);
                 }
-                // Keep all other methods (local methods stay!)
             }
         }
         
@@ -120,15 +144,47 @@ class T14SF_Shipping_Splitter {
                     }
                     unset($rates[$rate_id]);
                 }
-                // Keep Turn14 methods
             }
         }
         
         // Log after filtering
         if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('Turn14 SF: After filter - Rate count: ' . count($rates));
+            error_log('Turn14 SF: Rate count after filter: ' . count($rates));
+            
             if (empty($rates)) {
-                error_log('Turn14 SF: WARNING - No rates left after filtering!');
+                error_log('Turn14 SF: ⚠️ WARNING - No rates left after filtering!');
+                error_log('Turn14 SF: This means WooCommerce provided rates but they were all filtered out.');
+                if ($package_type === 'local') {
+                    error_log('Turn14 SF: LOCAL package had only Turn14 methods. Need local methods (free_shipping, flat_rate, local_pickup) in the matched zone!');
+                } elseif ($package_type === 'turn14') {
+                    error_log('Turn14 SF: TURN14 package had only local methods. Need Turn14 shipping method in the matched zone!');
+                }
+            } else {
+                error_log('Turn14 SF: ✅ Final rate IDs: ' . implode(', ', array_keys($rates)));
+            }
+            
+            error_log('Turn14 SF: === SHIPPING FILTER END ===');
+        }
+        
+        // Fallback mechanism for empty local package rates
+        if (empty($rates) && $package_type === 'local') {
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('Turn14 SF: No local methods available, customer will see "no shipping options"');
+                error_log('Turn14 SF: Check that zones covering this destination have local shipping methods enabled');
+            }
+            
+            // Optional: Add admin notice (only once per session)
+            if (is_admin() && current_user_can('manage_woocommerce')) {
+                $transient_key = 't14sf_no_local_methods_notice';
+                if (false === get_transient($transient_key)) {
+                    set_transient($transient_key, true, HOUR_IN_SECONDS);
+                    add_action('admin_notices', function() {
+                        echo '<div class="notice notice-warning"><p>';
+                        echo '<strong>Turn14 SF Warning:</strong> Local package has no shipping options. ';
+                        echo 'Ensure zones covering customer locations have free_shipping, flat_rate, or local_pickup enabled.';
+                        echo '</p></div>';
+                    });
+                }
             }
         }
         
