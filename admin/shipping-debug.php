@@ -129,37 +129,44 @@ class T14SF_Shipping_Debug {
     private static function test_package_creation() {
         echo '<p>Add items to cart and view this page to see package splitting in action.</p>';
         
-        if (WC()->cart && !WC()->cart->is_empty()) {
-            echo '<h3>Current Cart Packages:</h3>';
-            $packages = WC()->cart->get_shipping_packages();
-            
-            if (empty($packages)) {
-                echo '<div class="notice notice-warning inline"><p>No packages found. Cart may not have shipping enabled.</p></div>';
-            } else {
-                foreach ($packages as $i => $package) {
-                    echo '<div style="border:1px solid #ccc; padding:15px; margin:10px 0; background: #f9f9f9; border-radius: 4px;">';
-                    echo '<h4 style="margin-top: 0;">Package ' . ($i + 1) . '</h4>';
-                    echo '<table class="widefat" style="background: white;">';
-                    echo '<tr><td style="width: 150px;"><strong>Type:</strong></td><td>' . (isset($package['t14sf_type']) ? '<code>' . esc_html($package['t14sf_type']) . '</code>' : '<em style="color: #999;">not set</em>') . '</td></tr>';
-                    echo '<tr><td><strong>Label:</strong></td><td>' . (isset($package['t14sf_label']) ? esc_html($package['t14sf_label']) : '<em style="color: #999;">not set</em>') . '</td></tr>';
-                    echo '<tr><td><strong>Items:</strong></td><td>' . count($package['contents']) . '</td></tr>';
-                    echo '<tr><td><strong>Contents Cost:</strong></td><td>' . wc_price($package['contents_cost']) . '</td></tr>';
-                    echo '</table>';
-                    
-                    if (!empty($package['contents'])) {
-                        echo '<h5 style="margin-bottom: 8px;">Items in Package:</h5>';
-                        echo '<ul style="margin: 0;">';
-                        foreach ($package['contents'] as $item) {
-                            echo '<li>' . esc_html($item['data']->get_name()) . ' (Qty: ' . $item['quantity'] . ')</li>';
-                        }
-                        echo '</ul>';
-                    }
-                    
-                    echo '</div>';
-                }
-            }
-        } else {
+        // Check if WooCommerce and cart are available
+        if (!function_exists('WC') || !WC() || !isset(WC()->cart)) {
+            echo '<div class="notice notice-warning inline"><p>WooCommerce cart is not available. Make sure WooCommerce is active.</p></div>';
+            return;
+        }
+        
+        if (WC()->cart->is_empty()) {
             echo '<p><em>Cart is empty. Add products to test package splitting.</em></p>';
+            return;
+        }
+        
+        echo '<h3>Current Cart Packages:</h3>';
+        $packages = WC()->cart->get_shipping_packages();
+        
+        if (empty($packages)) {
+            echo '<div class="notice notice-warning inline"><p>No packages found. Cart may not have shipping enabled.</p></div>';
+        } else {
+            foreach ($packages as $i => $package) {
+                echo '<div style="border:1px solid #ccc; padding:15px; margin:10px 0; background: #f9f9f9; border-radius: 4px;">';
+                echo '<h4 style="margin-top: 0;">Package ' . ($i + 1) . '</h4>';
+                echo '<table class="widefat" style="background: white;">';
+                echo '<tr><td style="width: 150px;"><strong>Type:</strong></td><td>' . (isset($package['t14sf_type']) ? '<code>' . esc_html($package['t14sf_type']) . '</code>' : '<em style="color: #999;">not set</em>') . '</td></tr>';
+                echo '<tr><td><strong>Label:</strong></td><td>' . (isset($package['t14sf_label']) ? esc_html($package['t14sf_label']) : '<em style="color: #999;">not set</em>') . '</td></tr>';
+                echo '<tr><td><strong>Items:</strong></td><td>' . count($package['contents']) . '</td></tr>';
+                echo '<tr><td><strong>Contents Cost:</strong></td><td>' . wc_price($package['contents_cost']) . '</td></tr>';
+                echo '</table>';
+                
+                if (!empty($package['contents'])) {
+                    echo '<h5 style="margin-bottom: 8px;">Items in Package:</h5>';
+                    echo '<ul style="margin: 0;">';
+                    foreach ($package['contents'] as $item) {
+                        echo '<li>' . esc_html($item['data']->get_name()) . ' (Qty: ' . $item['quantity'] . ')</li>';
+                    }
+                    echo '</ul>';
+                }
+                
+                echo '</div>';
+            }
         }
     }
     
@@ -176,20 +183,34 @@ class T14SF_Shipping_Debug {
             return;
         }
         
-        $log_content = file_get_contents($log_file);
-        $lines = explode("\n", $log_content);
-        $t14sf_lines = array_filter($lines, function($line) {
-            return strpos($line, 'T14SF:') !== false || strpos($line, 'Turn14 SF:') !== false;
-        });
+        // Check file size before reading
+        $file_size = filesize($log_file);
+        if ($file_size > 5 * 1024 * 1024) { // 5MB
+            echo '<div class="notice notice-warning inline"><p>Debug log file is very large (' . size_format($file_size) . '). Showing only recent Turn14 entries.</p></div>';
+        }
         
-        $recent_lines = array_slice(array_reverse($t14sf_lines), 0, 50);
+        // Read file more efficiently for large files
+        $t14sf_lines = array();
+        $handle = fopen($log_file, 'r');
+        if ($handle) {
+            while (($line = fgets($handle)) !== false) {
+                if (strpos($line, 'T14SF:') !== false || strpos($line, 'Turn14 SF:') !== false) {
+                    $t14sf_lines[] = $line;
+                }
+            }
+            fclose($handle);
+        }
+        
+        // Get last 50 entries without reversing entire array first
+        $recent_lines = array_slice($t14sf_lines, -50);
+        $recent_lines = array_reverse($recent_lines);
         
         if (empty($recent_lines)) {
             echo '<p><em>No Turn14 plugin debug messages found in the log.</em></p>';
         } else {
             echo '<p>Showing last 50 Turn14-related log entries:</p>';
             echo '<pre style="background:#f5f5f5; padding:10px; overflow:auto; max-height:400px; border: 1px solid #ddd; border-radius: 4px;">';
-            echo esc_html(implode("\n", $recent_lines));
+            echo esc_html(implode('', $recent_lines));
             echo '</pre>';
         }
     }
