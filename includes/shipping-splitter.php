@@ -107,10 +107,6 @@ class T14SF_Shipping_Splitter {
                 if (in_array($method_id, $local_methods)) {
                     $filtered[$rate_id] = $rate;
                 }
-                // Explicitly exclude Turn14 rates from local packages
-                if ($method_id === $turn14_method_id) {
-                    continue;
-                }
             } else {
                 // For Turn14 packages, only include Turn14 shipping method
                 if ($method_id === $turn14_method_id) {
