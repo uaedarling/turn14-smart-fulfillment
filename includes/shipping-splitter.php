@@ -87,8 +87,8 @@ class T14SF_Shipping_Splitter {
     }
     
     public function filter_rates_by_package($rates, $package) {
-        // Get package type
-        $package_type = isset($package['t14sf_type']) ? $package['t14sf_type'] : 'unknown';
+        // Get package type (default to 'local' for backward compatibility)
+        $package_type = isset($package['t14sf_type']) ? $package['t14sf_type'] : 'local';
         
         // Log before filtering
         if (defined('WP_DEBUG') && WP_DEBUG) {

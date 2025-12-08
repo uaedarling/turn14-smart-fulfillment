@@ -283,7 +283,7 @@ class T14SF_Shipping_Debug {
             if (function_exists('WC')) {
                 try {
                     WC()->frontend_includes();
-                    if (WC()->cart && is_null(WC()->cart)) {
+                    if (!WC()->cart || is_null(WC()->cart)) {
                         WC()->cart = new WC_Cart();
                     }
                 } catch (Exception $e) {
