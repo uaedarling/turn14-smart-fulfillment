@@ -11,6 +11,19 @@ if (!defined('ABSPATH')) {
 class T14SF_Shipping_Debug {
     
     public static function render() {
+        // Check if WooCommerce is active
+        if (!class_exists('WooCommerce')) {
+            ?>
+            <div class="wrap t14sf-dashboard">
+                <h1>🔍 Shipping Debug Information</h1>
+                <div class="notice notice-error inline">
+                    <p><strong>⚠️ WooCommerce is not active!</strong> This debug page requires WooCommerce to be installed and activated.</p>
+                </div>
+            </div>
+            <?php
+            return;
+        }
+        
         ?>
         <div class="wrap t14sf-dashboard">
             <h1>🔍 Shipping Debug Information</h1>
@@ -20,84 +33,217 @@ class T14SF_Shipping_Debug {
             
             <div class="t14sf-settings-section">
                 <h2>WooCommerce Shipping Zones</h2>
-                <?php self::display_shipping_zones(); ?>
+                <?php 
+                try {
+                    self::display_shipping_zones();
+                } catch (Exception $e) {
+                    echo '<div class="notice notice-error inline"><p><strong>Error displaying shipping zones:</strong> ' . esc_html($e->getMessage()) . '</p>';
+                    echo '<p><em>File: ' . esc_html($e->getFile()) . ' Line: ' . esc_html($e->getLine()) . '</em></p></div>';
+                    error_log('T14SF Shipping Debug - display_shipping_zones error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+                }
+                ?>
             </div>
             
             <div class="t14sf-settings-section">
                 <h2>Turn14 Plugin Settings</h2>
-                <?php self::display_plugin_settings(); ?>
+                <?php 
+                try {
+                    self::display_plugin_settings();
+                } catch (Exception $e) {
+                    echo '<div class="notice notice-error inline"><p><strong>Error displaying plugin settings:</strong> ' . esc_html($e->getMessage()) . '</p></div>';
+                    error_log('T14SF Shipping Debug - display_plugin_settings error: ' . $e->getMessage());
+                }
+                ?>
             </div>
             
             <div class="t14sf-settings-section">
                 <h2>Test Package Creation</h2>
-                <?php self::test_package_creation(); ?>
+                <?php 
+                try {
+                    self::test_package_creation();
+                } catch (Exception $e) {
+                    echo '<div class="notice notice-error inline"><p><strong>Error testing package creation:</strong> ' . esc_html($e->getMessage()) . '</p></div>';
+                    error_log('T14SF Shipping Debug - test_package_creation error: ' . $e->getMessage());
+                }
+                ?>
             </div>
             
             <div class="t14sf-settings-section">
                 <h2>Recent Debug Log</h2>
-                <?php self::display_debug_log(); ?>
+                <?php 
+                try {
+                    self::display_debug_log();
+                } catch (Exception $e) {
+                    echo '<div class="notice notice-error inline"><p><strong>Error displaying debug log:</strong> ' . esc_html($e->getMessage()) . '</p></div>';
+                    error_log('T14SF Shipping Debug - display_debug_log error: ' . $e->getMessage());
+                }
+                ?>
             </div>
         </div>
         <?php
     }
     
     private static function display_shipping_zones() {
-        $shipping_zones = WC_Shipping_Zones::get_zones();
+        // Check if WC_Shipping_Zones class exists
+        if (!class_exists('WC_Shipping_Zones')) {
+            echo '<div class="notice notice-error inline"><p><strong>⚠️ WC_Shipping_Zones class not found!</strong> Make sure WooCommerce is properly installed and activated.</p></div>';
+            error_log('T14SF: WC_Shipping_Zones class does not exist');
+            return;
+        }
         
-        echo '<table class="wp-list-table widefat fixed striped">';
-        echo '<thead><tr><th>Zone Name</th><th>Regions</th><th>Shipping Methods</th></tr></thead>';
-        echo '<tbody>';
-        
-        foreach ($shipping_zones as $zone) {
-            echo '<tr>';
-            echo '<td><strong>' . esc_html($zone['zone_name']) . '</strong></td>';
-            echo '<td>' . esc_html(implode(', ', $zone['formatted_zone_location'])) . '</td>';
-            echo '<td>';
+        try {
+            $shipping_zones = WC_Shipping_Zones::get_zones();
             
-            if (!empty($zone['shipping_methods'])) {
-                echo '<ul style="margin:0;">';
-                foreach ($zone['shipping_methods'] as $method) {
-                    $enabled = $method->enabled === 'yes' ? '✅' : '❌';
-                    echo '<li>' . $enabled . ' <strong>' . esc_html($method->id) . '</strong>';
-                    if ($method->instance_id) {
-                        echo ' (Instance: <code>' . esc_html($method->id . ':' . $method->instance_id) . '</code>)';
+            echo '<table class="wp-list-table widefat fixed striped">';
+            echo '<thead><tr><th>Zone Name</th><th>Regions</th><th>Shipping Methods</th></tr></thead>';
+            echo '<tbody>';
+            
+            // Process each zone with proper error checking
+            if (is_array($shipping_zones)) {
+                foreach ($shipping_zones as $zone) {
+                    try {
+                        echo '<tr>';
+                        
+                        // Zone name with fallback
+                        $zone_name = isset($zone['zone_name']) ? $zone['zone_name'] : 'Unknown Zone';
+                        echo '<td><strong>' . esc_html($zone_name) . '</strong></td>';
+                        
+                        // Zone locations with validation
+                        echo '<td>';
+                        if (isset($zone['formatted_zone_location']) && is_array($zone['formatted_zone_location'])) {
+                            echo esc_html(implode(', ', $zone['formatted_zone_location']));
+                        } elseif (isset($zone['zone_locations']) && is_array($zone['zone_locations'])) {
+                            // Fallback to zone_locations if formatted_zone_location not available
+                            $locations = array();
+                            foreach ($zone['zone_locations'] as $location) {
+                                if (isset($location->code)) {
+                                    $locations[] = $location->code;
+                                }
+                            }
+                            echo esc_html(implode(', ', $locations));
+                        } else {
+                            echo '<em style="color: #999;">No locations specified</em>';
+                        }
+                        echo '</td>';
+                        
+                        // Shipping methods with validation
+                        echo '<td>';
+                        if (isset($zone['shipping_methods']) && is_array($zone['shipping_methods']) && !empty($zone['shipping_methods'])) {
+                            echo '<ul style="margin:0;">';
+                            foreach ($zone['shipping_methods'] as $method) {
+                                // Validate method is an object
+                                if (!is_object($method)) {
+                                    continue;
+                                }
+                                
+                                // Safely get enabled status
+                                $enabled = '❌';
+                                if (isset($method->enabled)) {
+                                    $enabled = $method->enabled === 'yes' ? '✅' : '❌';
+                                }
+                                
+                                // Safely get method ID
+                                $method_id = isset($method->id) ? $method->id : 'unknown';
+                                
+                                echo '<li>' . $enabled . ' <strong>' . esc_html($method_id) . '</strong>';
+                                
+                                // Safely get instance ID
+                                if (isset($method->instance_id) && $method->instance_id) {
+                                    echo ' (Instance: <code>' . esc_html($method_id . ':' . $method->instance_id) . '</code>)';
+                                }
+                                
+                                // Safely get title
+                                $title = isset($method->title) ? $method->title : 'Unknown Method';
+                                echo ' - ' . esc_html($title) . '</li>';
+                            }
+                            echo '</ul>';
+                        } else {
+                            echo '<em style="color:red;">No methods configured</em>';
+                        }
+                        
+                        echo '</td>';
+                        echo '</tr>';
+                    } catch (Exception $e) {
+                        echo '<tr><td colspan="3"><div class="notice notice-warning inline" style="margin: 5px 0;"><p><strong>Error processing zone:</strong> ' . esc_html($e->getMessage()) . '</p></div></td></tr>';
+                        error_log('T14SF: Error processing shipping zone - ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
                     }
-                    echo ' - ' . esc_html($method->title) . '</li>';
                 }
-                echo '</ul>';
-            } else {
-                echo '<em style="color:red;">No methods configured</em>';
             }
             
-            echo '</td>';
-            echo '</tr>';
-        }
-        
-        // Default/Everywhere zone
-        $default_zone = new WC_Shipping_Zone(0);
-        $methods = $default_zone->get_shipping_methods();
-        
-        if (!empty($methods)) {
-            echo '<tr>';
-            echo '<td><strong>Default Zone (Everywhere else)</strong></td>';
-            echo '<td>Locations not covered by other zones</td>';
-            echo '<td><ul style="margin:0;">';
-            foreach ($methods as $method) {
-                $enabled = $method->enabled === 'yes' ? '✅' : '❌';
-                echo '<li>' . $enabled . ' <strong>' . esc_html($method->id) . '</strong>';
-                if (isset($method->instance_id)) {
-                    echo ' (Instance: <code>' . esc_html($method->id . ':' . $method->instance_id) . '</code>)';
+            // Default/Everywhere zone with error handling
+            try {
+                if (class_exists('WC_Shipping_Zone')) {
+                    $default_zone = new WC_Shipping_Zone(0);
+                    $methods = $default_zone->get_shipping_methods();
+                    
+                    if (is_array($methods) && !empty($methods)) {
+                        echo '<tr>';
+                        echo '<td><strong>Default Zone (Everywhere else)</strong></td>';
+                        echo '<td>Locations not covered by other zones</td>';
+                        echo '<td><ul style="margin:0;">';
+                        
+                        foreach ($methods as $method) {
+                            // Validate method is an object
+                            if (!is_object($method)) {
+                                continue;
+                            }
+                            
+                            // Safely get enabled status
+                            $enabled = '❌';
+                            if (isset($method->enabled)) {
+                                $enabled = $method->enabled === 'yes' ? '✅' : '❌';
+                            }
+                            
+                            // Safely get method ID
+                            $method_id = isset($method->id) ? $method->id : 'unknown';
+                            
+                            echo '<li>' . $enabled . ' <strong>' . esc_html($method_id) . '</strong>';
+                            
+                            // Safely get instance ID
+                            if (isset($method->instance_id) && $method->instance_id) {
+                                echo ' (Instance: <code>' . esc_html($method_id . ':' . $method->instance_id) . '</code>)';
+                            }
+                            
+                            // Safely get title
+                            $title = isset($method->title) ? $method->title : 'Unknown Method';
+                            echo ' - ' . esc_html($title) . '</li>';
+                        }
+                        
+                        echo '</ul></td>';
+                        echo '</tr>';
+                    }
                 }
-                echo ' - ' . esc_html($method->title) . '</li>';
+            } catch (Exception $e) {
+                echo '<tr><td colspan="3"><div class="notice notice-warning inline" style="margin: 5px 0;"><p><strong>Error processing default zone:</strong> ' . esc_html($e->getMessage()) . '</p></div></td></tr>';
+                error_log('T14SF: Error processing default shipping zone - ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
             }
-            echo '</ul></td>';
-            echo '</tr>';
-        }
-        
-        echo '</tbody></table>';
-        
-        if (empty($shipping_zones) && empty($methods)) {
-            echo '<div class="notice notice-error inline"><p><strong>⚠️ No shipping zones configured!</strong> Go to WooCommerce → Settings → Shipping to add zones.</p></div>';
+            
+            echo '</tbody></table>';
+            
+            // Check if we have any zones at all
+            $has_zones = !empty($shipping_zones);
+            $has_default_methods = false;
+            
+            try {
+                if (class_exists('WC_Shipping_Zone')) {
+                    $default_zone = new WC_Shipping_Zone(0);
+                    $methods = $default_zone->get_shipping_methods();
+                    $has_default_methods = !empty($methods);
+                }
+            } catch (Exception $e) {
+                // Silently fail for this non-critical check
+                // We're just determining if the "no zones" message should display
+                error_log('T14SF: Error checking default zone for display decision - ' . $e->getMessage());
+            }
+            
+            if (!$has_zones && !$has_default_methods) {
+                echo '<div class="notice notice-error inline"><p><strong>⚠️ No shipping zones configured!</strong> Go to WooCommerce → Settings → Shipping to add zones.</p></div>';
+            }
+            
+        } catch (Exception $e) {
+            echo '<div class="notice notice-error inline"><p><strong>⚠️ Critical error loading shipping zones:</strong> ' . esc_html($e->getMessage()) . '</p>';
+            echo '<p><em>File: ' . esc_html($e->getFile()) . ' Line: ' . esc_html($e->getLine()) . '</em></p></div>';
+            error_log('T14SF: Critical error in display_shipping_zones - ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
         }
     }
     
@@ -183,35 +329,54 @@ class T14SF_Shipping_Debug {
             return;
         }
         
-        // Check file size before reading
-        $file_size = filesize($log_file);
-        if ($file_size > 5 * 1024 * 1024) { // 5MB
-            echo '<div class="notice notice-warning inline"><p>Debug log file is very large (' . size_format($file_size) . '). Showing only recent Turn14 entries.</p></div>';
+        // Check if file is readable
+        if (!is_readable($log_file)) {
+            echo '<div class="notice notice-error inline"><p><strong>⚠️ Cannot read debug.log file!</strong> Check file permissions.</p></div>';
+            error_log('T14SF: debug.log exists but is not readable');
+            return;
         }
         
-        // Read file more efficiently for large files
-        $t14sf_lines = array();
-        $handle = fopen($log_file, 'r');
-        if ($handle) {
+        try {
+            // Check file size before reading
+            $file_size = filesize($log_file);
+            if ($file_size === false) {
+                throw new Exception('Cannot determine file size');
+            }
+            
+            if ($file_size > 5 * 1024 * 1024) { // 5MB
+                echo '<div class="notice notice-warning inline"><p>Debug log file is very large (' . size_format($file_size) . '). Showing only recent Turn14 entries.</p></div>';
+            }
+            
+            // Read file more efficiently for large files
+            $t14sf_lines = array();
+            $handle = fopen($log_file, 'r');
+            
+            if ($handle === false) {
+                throw new Exception('Cannot open debug.log file');
+            }
+            
             while (($line = fgets($handle)) !== false) {
                 if (strpos($line, 'T14SF:') !== false || strpos($line, 'Turn14 SF:') !== false) {
                     $t14sf_lines[] = $line;
                 }
             }
             fclose($handle);
-        }
-        
-        // Get last 50 entries without reversing entire array first
-        $recent_lines = array_slice($t14sf_lines, -50);
-        $recent_lines = array_reverse($recent_lines);
-        
-        if (empty($recent_lines)) {
-            echo '<p><em>No Turn14 plugin debug messages found in the log.</em></p>';
-        } else {
-            echo '<p>Showing last 50 Turn14-related log entries:</p>';
-            echo '<pre style="background:#f5f5f5; padding:10px; overflow:auto; max-height:400px; border: 1px solid #ddd; border-radius: 4px;">';
-            echo esc_html(implode('', $recent_lines));
-            echo '</pre>';
+            
+            // Get last 50 entries without reversing entire array first
+            $recent_lines = array_slice($t14sf_lines, -50);
+            $recent_lines = array_reverse($recent_lines);
+            
+            if (empty($recent_lines)) {
+                echo '<p><em>No Turn14 plugin debug messages found in the log.</em></p>';
+            } else {
+                echo '<p>Showing last 50 Turn14-related log entries:</p>';
+                echo '<pre style="background:#f5f5f5; padding:10px; overflow:auto; max-height:400px; border: 1px solid #ddd; border-radius: 4px;">';
+                echo esc_html(implode('', $recent_lines));
+                echo '</pre>';
+            }
+        } catch (Exception $e) {
+            echo '<div class="notice notice-error inline"><p><strong>Error reading debug log:</strong> ' . esc_html($e->getMessage()) . '</p></div>';
+            error_log('T14SF: Error reading debug.log - ' . $e->getMessage());
         }
     }
 }
