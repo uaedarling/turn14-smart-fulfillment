@@ -90,7 +90,7 @@ class T14SF_Shipping_Splitter {
         $package_type = isset($package['t14sf_type']) ? $package['t14sf_type'] : 'local';
         
         $turn14_method_id = Turn14_Smart_Fulfillment::get_option('turn14_method_id', 'turn14_shipping');
-        $local_methods = Turn14_Smart_Fulfillment::get_option('local_methods', array());
+        $local_methods = Turn14_Smart_Fulfillment::get_option('local_methods', array('flat_rate', 'free_shipping', 'local_pickup'));
         
         // Safety check to ensure array
         if (!is_array($local_methods)) {
@@ -103,17 +103,34 @@ class T14SF_Shipping_Splitter {
             $method_id = method_exists($rate, 'get_method_id') ? $rate->get_method_id() : (isset($rate->method_id) ? $rate->method_id : '');
 
             if ($package_type === 'local') {
+                // For local packages, only include rates from configured local methods
                 if (in_array($method_id, $local_methods)) {
                     $filtered[$rate_id] = $rate;
                 }
+                // Explicitly exclude Turn14 rates from local packages
+                if ($method_id === $turn14_method_id) {
+                    continue;
+                }
             } else {
+                // For Turn14 packages, only include Turn14 shipping method
                 if ($method_id === $turn14_method_id) {
                     $filtered[$rate_id] = $rate;
                 }
             }
         }
         
-        return ! empty($filtered) ? $filtered : $rates;
+        // Debug logging if WP_DEBUG is enabled
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log(sprintf(
+                'Turn14 SF: Package type: %s, Available rates: %d, Filtered rates: %d',
+                $package_type,
+                count($rates),
+                count($filtered)
+            ));
+        }
+        
+        // Return filtered rates (may be empty if no matching methods found)
+        return $filtered;
     }
     
     public function custom_package_name($name, $i, $package) {
