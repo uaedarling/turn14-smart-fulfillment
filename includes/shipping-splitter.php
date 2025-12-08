@@ -154,8 +154,11 @@ class T14SF_Shipping_Splitter {
             if (empty($rates)) {
                 error_log('Turn14 SF: ⚠️ WARNING - No rates left after filtering!');
                 error_log('Turn14 SF: This means WooCommerce provided rates but they were all filtered out.');
-                error_log('Turn14 SF: For LOCAL packages: Only Turn14 methods were provided (need local methods!)');
-                error_log('Turn14 SF: For TURN14 packages: Only local methods were provided (need Turn14 methods!)');
+                if ($package_type === 'local') {
+                    error_log('Turn14 SF: LOCAL package had only Turn14 methods. Need local methods (free_shipping, flat_rate, local_pickup) in the matched zone!');
+                } elseif ($package_type === 'turn14') {
+                    error_log('Turn14 SF: TURN14 package had only local methods. Need Turn14 shipping method in the matched zone!');
+                }
             } else {
                 error_log('Turn14 SF: ✅ Final rate IDs: ' . implode(', ', array_keys($rates)));
             }
@@ -170,14 +173,18 @@ class T14SF_Shipping_Splitter {
                 error_log('Turn14 SF: Check that zones covering this destination have local shipping methods enabled');
             }
             
-            // Optional: Add admin notice
+            // Optional: Add admin notice (only once per session)
             if (is_admin() && current_user_can('manage_woocommerce')) {
-                add_action('admin_notices', function() {
-                    echo '<div class="notice notice-warning"><p>';
-                    echo '<strong>Turn14 SF Warning:</strong> Local package has no shipping options. ';
-                    echo 'Ensure zones covering customer locations have free_shipping, flat_rate, or local_pickup enabled.';
-                    echo '</p></div>';
-                });
+                $transient_key = 't14sf_no_local_methods_notice';
+                if (false === get_transient($transient_key)) {
+                    set_transient($transient_key, true, HOUR_IN_SECONDS);
+                    add_action('admin_notices', function() {
+                        echo '<div class="notice notice-warning"><p>';
+                        echo '<strong>Turn14 SF Warning:</strong> Local package has no shipping options. ';
+                        echo 'Ensure zones covering customer locations have free_shipping, flat_rate, or local_pickup enabled.';
+                        echo '</p></div>';
+                    });
+                }
             }
         }
         
