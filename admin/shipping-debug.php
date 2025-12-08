@@ -309,7 +309,7 @@ class T14SF_Shipping_Debug {
                 return;
             }
             
-            // Check if cart has calculate_shipping method
+            // Check if cart has required methods
             if (!method_exists($wc->cart, 'is_empty')) {
                 echo '<div class="notice notice-error"><p>Cart object exists but is missing required methods.</p></div>';
                 return;
@@ -348,7 +348,7 @@ class T14SF_Shipping_Debug {
                 // Package type
                 $type = isset($package['t14sf_type']) ? $package['t14sf_type'] : 'not set';
                 $type_color = ($type === 'not set') ? 'red' : ($type === 'local' ? 'green' : 'blue');
-                echo '<p><strong>Type:</strong> <span style="color:' . $type_color . '; font-weight:bold;">' . esc_html($type) . '</span></p>';
+                echo '<p><strong>Type:</strong> <span style="color:' . esc_attr($type_color) . '; font-weight:bold;">' . esc_html($type) . '</span></p>';
                 
                 // Package label
                 $label = isset($package['t14sf_label']) ? $package['t14sf_label'] : 'not set';
@@ -363,7 +363,7 @@ class T14SF_Shipping_Debug {
                     echo '<details style="margin-top:10px;"><summary style="cursor:pointer; font-weight:bold;">View Items</summary>';
                     echo '<ul style="font-size:12px; margin:10px 0;">';
                     
-                    foreach ($package['contents'] as $item_key => $item) {
+                    foreach ($package['contents'] as $item) {
                         if (isset($item['data']) && is_object($item['data'])) {
                             $product = $item['data'];
                             $product_name = method_exists($product, 'get_name') ? $product->get_name() : 'Unknown Product';
