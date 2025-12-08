@@ -60,10 +60,21 @@ class T14SF_Shipping_Debug {
                 <h2>Test Package Creation</h2>
                 <?php 
                 try {
-                    self::test_package_creation();
+                    self::test_package_creation(); 
                 } catch (Exception $e) {
-                    echo '<div class="notice notice-error inline"><p><strong>Error testing package creation:</strong> ' . esc_html($e->getMessage()) . '</p></div>';
-                    error_log('T14SF Shipping Debug - test_package_creation error: ' . $e->getMessage());
+                    echo '<div class="notice notice-error"><p>';
+                    echo '<strong>Critical error in package testing:</strong> ' . esc_html($e->getMessage());
+                    echo '</p></div>';
+                    
+                    if (defined('WP_DEBUG') && WP_DEBUG) {
+                        echo '<details><summary>Stack Trace</summary><pre>';
+                        echo esc_html($e->getTraceAsString());
+                        echo '</pre></details>';
+                    }
+                } catch (Error $e) {
+                    echo '<div class="notice notice-error"><p>';
+                    echo '<strong>PHP Error in package testing:</strong> ' . esc_html($e->getMessage());
+                    echo '</p></div>';
                 }
                 ?>
             </div>
@@ -275,59 +286,110 @@ class T14SF_Shipping_Debug {
     private static function test_package_creation() {
         echo '<p>Add items to cart and view this page to see package splitting in action.</p>';
         
-        // Check if WooCommerce and cart exist
-        if (!function_exists('WC') || !WC()->cart) {
-            echo '<div class="notice notice-warning"><p>WooCommerce cart is not available. Make sure WooCommerce is active.</p></div>';
-            
-            // Alternative: Try to initialize cart
-            if (function_exists('WC')) {
-                try {
-                    WC()->frontend_includes();
-                    if (!WC()->cart || is_null(WC()->cart)) {
-                        WC()->cart = new WC_Cart();
-                    }
-                } catch (Exception $e) {
-                    // Cart initialization failed
-                }
+        try {
+            // Check if WooCommerce function exists
+            if (!function_exists('WC')) {
+                echo '<div class="notice notice-error"><p>WooCommerce is not available.</p></div>';
+                return;
             }
-        }
-        
-        // Check again after initialization attempt
-        if (!function_exists('WC') || !WC()->cart) {
-            return;
-        }
-        
-        if (WC()->cart->is_empty()) {
-            echo '<p><em>Cart is empty. Add products to test package splitting.</em></p>';
-            return;
-        }
-        
-        echo '<h3>Current Cart Packages:</h3>';
-        
-        // Get packages
-        $packages = WC()->cart->get_shipping_packages();
-        
-        if (empty($packages)) {
-            echo '<p><em>No packages generated. Cart items: ' . WC()->cart->get_cart_contents_count() . '</em></p>';
-        } else {
+            
+            // Try to get WooCommerce instance
+            $wc = WC();
+            if (!$wc) {
+                echo '<div class="notice notice-error"><p>WooCommerce instance not available.</p></div>';
+                return;
+            }
+            
+            // Check if cart is available
+            if (!isset($wc->cart) || !is_object($wc->cart)) {
+                echo '<div class="notice notice-warning"><p>';
+                echo 'WooCommerce cart is not initialized. This is normal on admin pages.<br>';
+                echo 'To test package splitting: Go to your store front, add items to cart, then return here.';
+                echo '</p></div>';
+                return;
+            }
+            
+            // Check if cart has calculate_shipping method
+            if (!method_exists($wc->cart, 'is_empty')) {
+                echo '<div class="notice notice-error"><p>Cart object exists but is missing required methods.</p></div>';
+                return;
+            }
+            
+            // Check if cart is empty
+            if ($wc->cart->is_empty()) {
+                echo '<p><em>Cart is currently empty. Add products to your cart to see package splitting.</em></p>';
+                return;
+            }
+            
+            echo '<div class="notice notice-info"><p>';
+            echo '✅ Cart has ' . $wc->cart->get_cart_contents_count() . ' item(s). ';
+            echo 'Package splitting info:';
+            echo '</p></div>';
+            
+            // Try to get packages
+            if (!method_exists($wc->cart, 'get_shipping_packages')) {
+                echo '<p><em>Cart exists but shipping packages method not available.</em></p>';
+                return;
+            }
+            
+            $packages = $wc->cart->get_shipping_packages();
+            
+            if (empty($packages)) {
+                echo '<p><em>No packages generated yet. Try proceeding to checkout to trigger package creation.</em></p>';
+                return;
+            }
+            
+            echo '<h3>Current Cart Packages:</h3>';
+            
             foreach ($packages as $i => $package) {
-                echo '<div style="border:1px solid #ccc; padding:10px; margin:10px 0; background:#f9f9f9;">';
-                echo '<h4>Package ' . ($i + 1) . '</h4>';
-                echo '<p><strong>Type:</strong> ' . (isset($package['t14sf_type']) ? esc_html($package['t14sf_type']) : '<span style="color:red;">not set</span>') . '</p>';
-                echo '<p><strong>Label:</strong> ' . (isset($package['t14sf_label']) ? esc_html($package['t14sf_label']) : '<span style="color:red;">not set</span>') . '</p>';
-                echo '<p><strong>Items:</strong> ' . count($package['contents']) . '</p>';
+                echo '<div style="border:1px solid #ccc; padding:15px; margin:10px 0; background:#f9f9f9; border-radius:4px;">';
+                echo '<h4 style="margin-top:0;">📦 Package ' . ($i + 1) . '</h4>';
                 
-                // Show items
+                // Package type
+                $type = isset($package['t14sf_type']) ? $package['t14sf_type'] : 'not set';
+                $type_color = ($type === 'not set') ? 'red' : ($type === 'local' ? 'green' : 'blue');
+                echo '<p><strong>Type:</strong> <span style="color:' . $type_color . '; font-weight:bold;">' . esc_html($type) . '</span></p>';
+                
+                // Package label
+                $label = isset($package['t14sf_label']) ? $package['t14sf_label'] : 'not set';
+                echo '<p><strong>Label:</strong> ' . esc_html($label) . '</p>';
+                
+                // Item count
+                $item_count = isset($package['contents']) ? count($package['contents']) : 0;
+                echo '<p><strong>Items:</strong> ' . $item_count . '</p>';
+                
+                // Show items if available
                 if (!empty($package['contents'])) {
-                    echo '<ul style="font-size:12px;">';
-                    foreach ($package['contents'] as $item) {
-                        $product = $item['data'];
-                        echo '<li>' . esc_html($product->get_name()) . ' (Qty: ' . $item['quantity'] . ')</li>';
+                    echo '<details style="margin-top:10px;"><summary style="cursor:pointer; font-weight:bold;">View Items</summary>';
+                    echo '<ul style="font-size:12px; margin:10px 0;">';
+                    
+                    foreach ($package['contents'] as $item_key => $item) {
+                        if (isset($item['data']) && is_object($item['data'])) {
+                            $product = $item['data'];
+                            $product_name = method_exists($product, 'get_name') ? $product->get_name() : 'Unknown Product';
+                            $quantity = isset($item['quantity']) ? $item['quantity'] : 1;
+                            
+                            echo '<li>' . esc_html($product_name) . ' (Qty: ' . $quantity . ')</li>';
+                        }
                     }
-                    echo '</ul>';
+                    
+                    echo '</ul></details>';
                 }
                 
                 echo '</div>';
+            }
+            
+        } catch (Exception $e) {
+            echo '<div class="notice notice-error"><p>';
+            echo '<strong>Error displaying cart packages:</strong><br>';
+            echo esc_html($e->getMessage()) . '<br>';
+            echo '<small>File: ' . esc_html($e->getFile()) . ' | Line: ' . $e->getLine() . '</small>';
+            echo '</p></div>';
+            
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                echo '<pre style="background:#f5f5f5; padding:10px; font-size:11px; overflow:auto;">';
+                echo esc_html($e->getTraceAsString());
+                echo '</pre>';
             }
         }
     }
